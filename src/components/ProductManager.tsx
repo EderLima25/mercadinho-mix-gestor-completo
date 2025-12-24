@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Edit2, Trash2, Package, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Package, AlertTriangle, CheckSquare, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -18,6 +18,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import {
@@ -30,11 +32,15 @@ import {
 import { useProducts, Product } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import { Badge } from '@/components/ui/badge';
+import { ProductCleaner } from './ProductCleaner';
 
 export function ProductManager() {
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const { products, addProduct, updateProduct, deleteProduct } = useProducts();
   const { categories } = useCategories();
 
@@ -112,8 +118,49 @@ export function ProductManager() {
     await deleteProduct.mutateAsync(id);
   };
 
+  const handleSelectProduct = (productId: string) => {
+    const newSelected = new Set(selectedProducts);
+    if (newSelected.has(productId)) {
+      newSelected.delete(productId);
+    } else {
+      newSelected.add(productId);
+    }
+    setSelectedProducts(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedProducts.size === filteredProducts.length && filteredProducts.length > 0) {
+      setSelectedProducts(new Set());
+    } else {
+      setSelectedProducts(new Set(filteredProducts.map(p => p.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    setIsBulkDeleting(true);
+    try {
+      // Processa exclusões sequencialmente para evitar conflitos
+      for (const productId of Array.from(selectedProducts)) {
+        await deleteProduct.mutateAsync(productId);
+      }
+      setSelectedProducts(new Set());
+      setIsDeleteDialogOpen(false);
+    } catch (error) {
+      // Mesmo com erro, limpa as seleções e fecha o dialog
+      setSelectedProducts(new Set());
+      setIsDeleteDialogOpen(false);
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  const selectedProductsList = products.filter(p => selectedProducts.has(p.id));
+
   return (
     <div className="space-y-6">
+      {/* Componente temporário para limpeza de produtos */}
+      <ProductCleaner />
+      
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -125,16 +172,27 @@ export function ProductManager() {
           />
         </div>
         
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Produto
+        <div className="flex gap-2">
+          {selectedProducts.size > 0 && (
+            <Button
+              variant="destructive"
+              onClick={() => setIsDeleteDialogOpen(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Excluir {selectedProducts.size} produto{selectedProducts.size > 1 ? 's' : ''}
             </Button>
-          </DialogTrigger>
+          )}
+          
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) resetForm();
+          }}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Produto
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>
@@ -251,12 +309,65 @@ export function ProductManager() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
+      {/* Dialog de confirmação para exclusão em lote */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
+            <DialogDescription>
+              Você está prestes a excluir {selectedProducts.size} produto{selectedProducts.size > 1 ? 's' : ''}. 
+              Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="max-h-60 overflow-y-auto">
+            <div className="space-y-2">
+              {selectedProductsList.map((product) => (
+                <div key={product.id} className="flex items-center gap-2 p-2 bg-muted rounded">
+                  <Package className="h-4 w-4" />
+                  <span className="font-medium">{product.name}</span>
+                  <span className="text-sm text-muted-foreground">({product.barcode})</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting}
+            >
+              {isBulkDeleting ? 'Excluindo...' : 'Confirmar Exclusão'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSelectAll}
+                  className="h-8 w-8 p-0"
+                >
+                  {selectedProducts.size === filteredProducts.length && filteredProducts.length > 0 ? (
+                    <CheckSquare className="h-4 w-4" />
+                  ) : (
+                    <Square className="h-4 w-4" />
+                  )}
+                </Button>
+              </TableHead>
               <TableHead>Produto</TableHead>
               <TableHead>Código</TableHead>
               <TableHead>Categoria</TableHead>
@@ -275,6 +386,20 @@ export function ProductManager() {
                   exit={{ opacity: 0 }}
                   className="border-b transition-colors hover:bg-muted/50"
                 >
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleSelectProduct(product.id)}
+                      className="h-8 w-8 p-0"
+                    >
+                      {selectedProducts.has(product.id) ? (
+                        <CheckSquare className="h-4 w-4" />
+                      ) : (
+                        <Square className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TableCell>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell className="font-mono text-sm text-muted-foreground">
                     {product.barcode}

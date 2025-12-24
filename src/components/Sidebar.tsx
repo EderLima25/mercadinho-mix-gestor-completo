@@ -9,12 +9,16 @@ import {
   Menu,
   X,
   Upload,
-  Box
+  Box,
+  FileText,
+  Users,
+  Building2,
+  DollarSign
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-type View = 'dashboard' | 'pos' | 'products' | 'inventory' | 'import' | 'settings';
+type View = 'dashboard' | 'pos' | 'products' | 'inventory' | 'import' | 'reports' | 'users' | 'settings' | 'suppliers' | 'cash';
 
 interface SidebarProps {
   currentView: View;
@@ -24,9 +28,14 @@ interface SidebarProps {
 const menuItems = [
   { id: 'dashboard' as View, label: 'Dashboard', icon: BarChart3 },
   { id: 'pos' as View, label: 'PDV', icon: ShoppingCart },
+  { id: 'cash' as View, label: 'Caixa', icon: DollarSign },
   { id: 'products' as View, label: 'Produtos', icon: Package },
+  { id: 'suppliers' as View, label: 'Fornecedores', icon: Building2 },
   { id: 'inventory' as View, label: 'Estoque', icon: Box },
+  { id: 'reports' as View, label: 'Relatórios', icon: FileText },
+  { id: 'users' as View, label: 'Usuários', icon: Users },
   { id: 'import' as View, label: 'Importar/Exportar', icon: Upload },
+  { id: 'settings' as View, label: 'Configurações', icon: Settings },
 ];
 
 export function Sidebar({ currentView, onViewChange }: SidebarProps) {
@@ -64,14 +73,14 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
           x: isMobileOpen || window.innerWidth >= 1024 ? 0 : -280,
         }}
         className={cn(
-          'fixed left-0 top-0 z-40 flex h-screen flex-col border-r bg-sidebar transition-all duration-300',
+          'fixed left-0 top-0 z-40 flex h-screen flex-col border-r bg-slate-800 transition-all duration-300',
           'lg:relative lg:translate-x-0'
         )}
       >
         {/* Logo */}
-        <div className="flex h-16 items-center gap-3 border-b px-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-            <Store className="h-6 w-6 text-primary-foreground" />
+        <div className="flex h-16 items-center gap-3 border-b border-slate-700 px-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500">
+            <Store className="h-6 w-6 text-white" />
           </div>
           {!isCollapsed && (
             <motion.div
@@ -79,8 +88,8 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
               animate={{ opacity: 1 }}
               className="flex flex-col"
             >
-              <span className="text-lg font-bold text-sidebar-foreground">Mercadinho</span>
-              <span className="text-xs font-medium text-primary">Mix</span>
+              <span className="text-lg font-bold text-white">Mercadinho</span>
+              <span className="text-xs font-medium text-orange-400">Mix</span>
             </motion.div>
           )}
         </div>
@@ -103,11 +112,11 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
                 className={cn(
                   'flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors',
                   isActive
-                    ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-soft'
-                    : 'text-sidebar-foreground hover:bg-sidebar-accent'
+                    ? 'bg-orange-500 text-white shadow-lg'
+                    : 'text-slate-300 hover:bg-slate-700 hover:text-white'
                 )}
               >
-                <Icon className={cn('h-5 w-5 shrink-0', isActive && 'text-sidebar-primary-foreground')} />
+                <Icon className={cn('h-5 w-5 shrink-0', isActive ? 'text-white' : 'text-slate-400')} />
                 {!isCollapsed && (
                   <span className="font-medium">{item.label}</span>
                 )}
@@ -117,12 +126,12 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
         </nav>
 
         {/* Collapse Toggle (Desktop) */}
-        <div className="hidden border-t p-3 lg:block">
+        <div className="hidden border-t border-slate-700 p-3 lg:block">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="w-full justify-center"
+            className="w-full justify-center text-slate-400 hover:text-white hover:bg-slate-700"
           >
             <Menu className="h-5 w-5" />
           </Button>
