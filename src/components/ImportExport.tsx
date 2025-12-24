@@ -2,36 +2,35 @@ import { useState, useRef } from 'react';
 import { Upload, FileSpreadsheet, Database, FileText, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { useStore } from '@/store/useStore';
-import { Product } from '@/types';
+import { useProducts, ProductInsert } from '@/hooks/useProducts';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/integrations/supabase/client';
 
 export function ImportExport() {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{ success: number; errors: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { products, importProducts } = useStore();
+  const { products, importProducts } = useProducts();
   const { toast } = useToast();
 
-  const parseCSV = (content: string): Partial<Product>[] => {
+  const parseCSV = (content: string): Partial<ProductInsert>[] => {
     const lines = content.split('\n');
     const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
     
     return lines.slice(1).filter(line => line.trim()).map((line) => {
       const values = line.split(',');
-      const product: Partial<Product> = {};
+      const product: Partial<ProductInsert> = {};
       
       headers.forEach((header, index) => {
         const value = values[index]?.trim();
         if (header.includes('nome') || header === 'name') product.name = value;
         if (header.includes('codigo') || header === 'barcode') product.barcode = value;
         if (header.includes('preco') || header === 'price') product.price = parseFloat(value) || 0;
-        if (header.includes('custo') || header === 'cost') product.costPrice = parseFloat(value) || 0;
+        if (header.includes('custo') || header === 'cost') product.cost_price = parseFloat(value) || 0;
         if (header.includes('estoque') || header === 'stock') product.stock = parseInt(value) || 0;
-        if (header.includes('minimo') || header === 'min') product.minStock = parseInt(value) || 5;
-        if (header.includes('categoria') || header === 'category') product.category = value;
+        if (header.includes('minimo') || header === 'min') product.min_stock = parseInt(value) || 5;
         if (header.includes('unidade') || header === 'unit') product.unit = value || 'un';
       });
       
@@ -39,7 +38,7 @@ export function ImportExport() {
     });
   };
 
-  const parseExcel = async (file: File): Promise<Partial<Product>[]> => {
+  const parseExcel = async (file: File): Promise<Partial<ProductInsert>[]> => {
     const arrayBuffer = await file.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
     const sheetName = workbook.SheetNames[0];
@@ -50,10 +49,9 @@ export function ImportExport() {
       name: row.nome || row.name || row.Nome || row.NAME || '',
       barcode: String(row.codigo || row.barcode || row.Codigo || row.BARCODE || row['código'] || ''),
       price: parseFloat(row.preco || row.price || row.Preco || row.PRICE || row['preço'] || 0),
-      costPrice: parseFloat(row.custo || row.cost || row.Custo || row.COST || 0),
+      cost_price: parseFloat(row.custo || row.cost || row.Custo || row.COST || 0),
       stock: parseInt(row.estoque || row.stock || row.Estoque || row.STOCK || 0),
-      minStock: parseInt(row.minimo || row.min || row.Minimo || row.MIN || 5),
-      category: row.categoria || row.category || row.Categoria || row.CATEGORY || '',
+      min_stock: parseInt(row.minimo || row.min || row.Minimo || row.MIN || 5),
       unit: row.unidade || row.unit || row.Unidade || row.UNIT || 'un',
     }));
   };
@@ -66,7 +64,7 @@ export function ImportExport() {
     setImportResult(null);
 
     try {
-      let parsedProducts: Partial<Product>[] = [];
+      let parsedProducts: Partial<ProductInsert>[] = [];
 
       if (file.name.endsWith('.csv')) {
         const content = await file.text();
@@ -79,33 +77,25 @@ export function ImportExport() {
         parsedProducts = Array.isArray(data) ? data : data.products || [];
       }
 
-      const validProducts: Product[] = parsedProducts
+      const validProducts: ProductInsert[] = parsedProducts
         .filter((p) => p.name && p.barcode)
         .map((p) => ({
-          id: crypto.randomUUID(),
           name: p.name!,
           barcode: p.barcode!,
           price: p.price || 0,
-          costPrice: p.costPrice || 0,
+          cost_price: p.cost_price || 0,
           stock: p.stock || 0,
-          minStock: p.minStock || 5,
-          category: p.category || '',
+          min_stock: p.min_stock || 5,
           unit: p.unit || 'un',
-          createdAt: new Date(),
-          updatedAt: new Date(),
         }));
 
-      importProducts(validProducts);
+      await importProducts.mutateAsync(validProducts);
       
       setImportResult({
         success: validProducts.length,
         errors: parsedProducts.length - validProducts.length,
       });
 
-      toast({
-        title: 'Importação concluída!',
-        description: `${validProducts.length} produtos importados com sucesso.`,
-      });
     } catch (error) {
       toast({
         title: 'Erro na importação',
@@ -121,15 +111,14 @@ export function ImportExport() {
   };
 
   const exportToCSV = () => {
-    const headers = ['nome', 'codigo', 'preco', 'custo', 'estoque', 'minimo', 'categoria', 'unidade'];
+    const headers = ['nome', 'codigo', 'preco', 'custo', 'estoque', 'minimo', 'unidade'];
     const rows = products.map((p) => [
       p.name,
       p.barcode,
       p.price,
-      p.costPrice,
+      p.cost_price,
       p.stock,
-      p.minStock,
-      p.category,
+      p.min_stock,
       p.unit,
     ]);
 
@@ -148,10 +137,9 @@ export function ImportExport() {
       Nome: p.name,
       Codigo: p.barcode,
       Preco: p.price,
-      Custo: p.costPrice,
+      Custo: p.cost_price,
       Estoque: p.stock,
-      Minimo: p.minStock,
-      Categoria: p.category,
+      Minimo: p.min_stock,
       Unidade: p.unit,
     }));
 

@@ -2,17 +2,22 @@ import { motion } from 'framer-motion';
 import { DollarSign, ShoppingCart, Package, TrendingUp } from 'lucide-react';
 import { StatCard } from './StatCard';
 import { Card } from '@/components/ui/card';
-import { useStore } from '@/store/useStore';
+import { useProducts } from '@/hooks/useProducts';
+import { useSales } from '@/hooks/useSales';
 
 export function Dashboard() {
-  const { products, sales } = useStore();
+  const { products, isLoading: productsLoading } = useProducts();
+  const { todaySales, todayRevenue, isLoading: salesLoading } = useSales();
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const lowStockProducts = products.filter((p) => p.stock <= p.min_stock);
 
-  const todaySales = sales.filter((s) => new Date(s.createdAt) >= today);
-  const todayRevenue = todaySales.reduce((sum, s) => sum + s.total, 0);
-  const lowStockProducts = products.filter((p) => p.stock <= p.minStock);
+  if (productsLoading || salesLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -70,18 +75,18 @@ export function Dashboard() {
                   className="flex items-center justify-between rounded-lg border bg-secondary/30 p-3"
                 >
                   <div>
-                    <p className="font-medium">{sale.items.length} itens</p>
+                    <p className="font-medium">{sale.sale_items?.length || 0} itens</p>
                     <p className="text-sm text-muted-foreground">
-                      {new Date(sale.createdAt).toLocaleTimeString('pt-BR', {
+                      {new Date(sale.created_at).toLocaleTimeString('pt-BR', {
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-primary">R$ {sale.total.toFixed(2)}</p>
+                    <p className="font-bold text-primary">R$ {Number(sale.total).toFixed(2)}</p>
                     <p className="text-xs text-muted-foreground uppercase">
-                      {sale.paymentMethod}
+                      {sale.payment_method}
                     </p>
                   </div>
                 </div>
@@ -105,14 +110,14 @@ export function Dashboard() {
                 >
                   <div>
                     <p className="font-medium">{product.name}</p>
-                    <p className="text-sm text-muted-foreground">{product.category}</p>
+                    <p className="text-sm text-muted-foreground">{product.category?.name}</p>
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-warning-foreground">
                       {product.stock} {product.unit}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Mín: {product.minStock}
+                      Mín: {product.min_stock}
                     </p>
                   </div>
                 </div>

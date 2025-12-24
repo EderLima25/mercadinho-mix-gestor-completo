@@ -27,26 +27,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useStore } from '@/store/useStore';
-import { Product } from '@/types';
-import { useToast } from '@/hooks/use-toast';
+import { useProducts, Product } from '@/hooks/useProducts';
+import { useCategories } from '@/hooks/useCategories';
 import { Badge } from '@/components/ui/badge';
 
 export function ProductManager() {
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const { products, categories, addProduct, updateProduct, deleteProduct } = useStore();
-  const { toast } = useToast();
+  const { products, addProduct, updateProduct, deleteProduct } = useProducts();
+  const { categories } = useCategories();
 
   const [formData, setFormData] = useState({
     name: '',
     barcode: '',
     price: '',
-    costPrice: '',
+    cost_price: '',
     stock: '',
-    minStock: '',
-    category: '',
+    min_stock: '',
+    category_id: '',
     unit: 'un',
   });
 
@@ -61,38 +60,33 @@ export function ProductManager() {
       name: '',
       barcode: '',
       price: '',
-      costPrice: '',
+      cost_price: '',
       stock: '',
-      minStock: '',
-      category: '',
+      min_stock: '',
+      category_id: '',
       unit: 'un',
     });
     setEditingProduct(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const productData: Product = {
-      id: editingProduct?.id || crypto.randomUUID(),
+    const productData = {
       name: formData.name,
       barcode: formData.barcode,
       price: parseFloat(formData.price),
-      costPrice: parseFloat(formData.costPrice),
+      cost_price: parseFloat(formData.cost_price),
       stock: parseInt(formData.stock),
-      minStock: parseInt(formData.minStock),
-      category: formData.category,
+      min_stock: parseInt(formData.min_stock),
+      category_id: formData.category_id || null,
       unit: formData.unit,
-      createdAt: editingProduct?.createdAt || new Date(),
-      updatedAt: new Date(),
     };
 
     if (editingProduct) {
-      updateProduct(editingProduct.id, productData);
-      toast({ title: 'Produto atualizado com sucesso!' });
+      await updateProduct.mutateAsync({ id: editingProduct.id, ...productData });
     } else {
-      addProduct(productData);
-      toast({ title: 'Produto cadastrado com sucesso!' });
+      await addProduct.mutateAsync(productData);
     }
 
     resetForm();
@@ -104,19 +98,18 @@ export function ProductManager() {
     setFormData({
       name: product.name,
       barcode: product.barcode,
-      price: product.price.toString(),
-      costPrice: product.costPrice.toString(),
-      stock: product.stock.toString(),
-      minStock: product.minStock.toString(),
-      category: product.category,
+      price: String(product.price),
+      cost_price: String(product.cost_price),
+      stock: String(product.stock),
+      min_stock: String(product.min_stock),
+      category_id: product.category_id || '',
       unit: product.unit,
     });
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    deleteProduct(id);
-    toast({ title: 'Produto removido!', variant: 'destructive' });
+  const handleDelete = async (id: string) => {
+    await deleteProduct.mutateAsync(id);
   };
 
   return (
@@ -180,13 +173,13 @@ export function ProductManager() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="costPrice">Preço de Custo (R$)</Label>
+                  <Label htmlFor="cost_price">Preço de Custo (R$)</Label>
                   <Input
-                    id="costPrice"
+                    id="cost_price"
                     type="number"
                     step="0.01"
-                    value={formData.costPrice}
-                    onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
+                    value={formData.cost_price}
+                    onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
                     required
                   />
                 </div>
@@ -201,27 +194,27 @@ export function ProductManager() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="minStock">Estoque Mínimo</Label>
+                  <Label htmlFor="min_stock">Estoque Mínimo</Label>
                   <Input
-                    id="minStock"
+                    id="min_stock"
                     type="number"
-                    value={formData.minStock}
-                    onChange={(e) => setFormData({ ...formData, minStock: e.target.value })}
+                    value={formData.min_stock}
+                    onChange={(e) => setFormData({ ...formData, min_stock: e.target.value })}
                     required
                   />
                 </div>
                 <div>
                   <Label htmlFor="category">Categoria</Label>
                   <Select
-                    value={formData.category}
-                    onValueChange={(value) => setFormData({ ...formData, category: value })}
+                    value={formData.category_id}
+                    onValueChange={(value) => setFormData({ ...formData, category_id: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione..." />
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.name}>
+                        <SelectItem key={cat.id} value={cat.id}>
                           {cat.name}
                         </SelectItem>
                       ))}
@@ -251,7 +244,7 @@ export function ProductManager() {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={addProduct.isPending || updateProduct.isPending}>
                   {editingProduct ? 'Salvar Alterações' : 'Cadastrar'}
                 </Button>
               </div>
@@ -287,17 +280,19 @@ export function ProductManager() {
                     {product.barcode}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{product.category || 'Sem categoria'}</Badge>
+                    <Badge variant="secondary">
+                      {product.category?.name || 'Sem categoria'}
+                    </Badge>
                   </TableCell>
                   <TableCell className="text-right font-medium">
-                    R$ {product.price.toFixed(2)}
+                    R$ {Number(product.price).toFixed(2)}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {product.stock <= product.minStock && (
+                      {product.stock <= product.min_stock && (
                         <AlertTriangle className="h-4 w-4 text-warning" />
                       )}
-                      <span className={product.stock <= product.minStock ? 'text-warning font-medium' : ''}>
+                      <span className={product.stock <= product.min_stock ? 'text-warning font-medium' : ''}>
                         {product.stock} {product.unit}
                       </span>
                     </div>
