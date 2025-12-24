@@ -15,10 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useStore } from '@/store/useStore';
-import { Product } from '@/types';
+import { useProducts, Product } from '@/hooks/useProducts';
+import { useCategories } from '@/hooks/useCategories';
 import { AlertCircle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 
 interface QuickProductModalProps {
   open: boolean;
@@ -33,41 +32,33 @@ export function QuickProductModal({
   barcode,
   onProductAdded,
 }: QuickProductModalProps) {
-  const { categories, addProduct } = useStore();
-  const { toast } = useToast();
+  const { categories } = useCategories();
+  const { addProduct } = useProducts();
   
   const [formData, setFormData] = useState({
     name: '',
     price: '',
     stock: '1',
-    category: '',
+    category_id: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const product: Product = {
-      id: crypto.randomUUID(),
+    const productData = {
       name: formData.name,
       barcode: barcode,
       price: parseFloat(formData.price),
-      costPrice: parseFloat(formData.price) * 0.7, // Default 30% margin
+      cost_price: parseFloat(formData.price) * 0.7,
       stock: parseInt(formData.stock),
-      minStock: 5,
-      category: formData.category,
+      min_stock: 5,
+      category_id: formData.category_id || null,
       unit: 'un',
-      createdAt: new Date(),
-      updatedAt: new Date(),
     };
 
-    addProduct(product);
-    toast({
-      title: 'Produto cadastrado!',
-      description: `${product.name} foi adicionado e incluído no carrinho.`,
-    });
-    
-    onProductAdded(product);
-    setFormData({ name: '', price: '', stock: '1', category: '' });
+    const result = await addProduct.mutateAsync(productData);
+    onProductAdded(result);
+    setFormData({ name: '', price: '', stock: '1', category_id: '' });
   };
 
   return (
@@ -130,15 +121,15 @@ export function QuickProductModal({
           <div>
             <Label htmlFor="quick-category">Categoria</Label>
             <Select
-              value={formData.category}
-              onValueChange={(value) => setFormData({ ...formData, category: value })}
+              value={formData.category_id}
+              onValueChange={(value) => setFormData({ ...formData, category_id: value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione uma categoria" />
               </SelectTrigger>
               <SelectContent>
                 {categories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.name}>
+                  <SelectItem key={cat.id} value={cat.id}>
                     {cat.name}
                   </SelectItem>
                 ))}
@@ -150,8 +141,8 @@ export function QuickProductModal({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit">
-              Cadastrar e Adicionar
+            <Button type="submit" disabled={addProduct.isPending}>
+              {addProduct.isPending ? 'Cadastrando...' : 'Cadastrar e Adicionar'}
             </Button>
           </div>
         </form>

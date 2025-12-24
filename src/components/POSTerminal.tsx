@@ -1,13 +1,19 @@
 import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, QrCode, Printer } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { useStore } from '@/store/useStore';
-import { CartItem, Product } from '@/types';
+import { useProducts, Product } from '@/hooks/useProducts';
+import { useSales } from '@/hooks/useSales';
 import { QuickProductModal } from './QuickProductModal';
 import { useToast } from '@/hooks/use-toast';
+
+interface CartItem {
+  product: Product;
+  quantity: number;
+  subtotal: number;
+}
 
 export function POSTerminal() {
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -15,7 +21,8 @@ export function POSTerminal() {
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [unknownBarcode, setUnknownBarcode] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const { getProductByBarcode, updateStock, addSale, products } = useStore();
+  const { products, getProductByBarcode } = useProducts();
+  const { createSale } = useSales();
   const { toast } = useToast();
 
   const addToCart = useCallback((product: Product, quantity: number = 1) => {
@@ -24,11 +31,11 @@ export function POSTerminal() {
       if (existing) {
         return prev.map((item) =>
           item.product.id === product.id
-            ? { ...item, quantity: item.quantity + quantity, subtotal: (item.quantity + quantity) * item.product.price }
+            ? { ...item, quantity: item.quantity + quantity, subtotal: (item.quantity + quantity) * Number(item.product.price) }
             : item
         );
       }
-      return [...prev, { product, quantity, subtotal: product.price * quantity }];
+      return [...prev, { product, quantity, subtotal: Number(product.price) * quantity }];
     });
   }, []);
 
@@ -73,7 +80,7 @@ export function POSTerminal() {
           if (item.product.id === productId) {
             const newQuantity = item.quantity + delta;
             if (newQuantity <= 0) return null;
-            return { ...item, quantity: newQuantity, subtotal: newQuantity * item.product.price };
+            return { ...item, quantity: newQuantity, subtotal: newQuantity * Number(item.product.price) };
           }
           return item;
         })
@@ -87,54 +94,37 @@ export function POSTerminal() {
 
   const total = cart.reduce((sum, item) => sum + item.subtotal, 0);
 
-  const handlePayment = (method: 'cash' | 'credit' | 'debit' | 'pix') => {
+  const handlePayment = async (method: 'cash' | 'credit' | 'debit' | 'pix') => {
     if (cart.length === 0) return;
 
-    const sale = {
-      id: crypto.randomUUID(),
-      items: cart,
+    const items = cart.map(item => ({
+      product_id: item.product.id,
+      quantity: item.quantity,
+      unit_price: Number(item.product.price),
+      subtotal: item.subtotal,
+    }));
+
+    await createSale.mutateAsync({
+      items,
       total,
       paymentMethod: method,
-      createdAt: new Date(),
-    };
-
-    // Update stock
-    cart.forEach((item) => {
-      updateStock(item.product.id, item.quantity);
     });
 
-    addSale(sale);
     setCart([]);
-    
-    toast({
-      title: 'Venda finalizada!',
-      description: `Total: R$ ${total.toFixed(2)} - ${method.toUpperCase()}`,
-    });
-
-    // Here you would trigger thermal printer
-    printReceipt(sale);
+    printReceipt(method);
   };
 
-  const printReceipt = (sale: typeof cart extends infer T ? { id: string; items: CartItem[]; total: number; paymentMethod: string; createdAt: Date } : never) => {
-    // ESC/POS command simulation - in real implementation, this would connect to thermal printer
-    const escpos = {
-      init: '\x1B\x40',
-      center: '\x1B\x61\x01',
-      left: '\x1B\x61\x00',
-      bold: '\x1B\x45\x01',
-      normal: '\x1B\x45\x00',
-      cut: '\x1D\x56\x00',
-    };
-
+  const printReceipt = (paymentMethod: string) => {
+    // ESC/POS command simulation
     console.log('=== CUPOM FISCAL ===');
     console.log('MERCADINHO MIX');
     console.log('==================');
-    sale.items.forEach((item) => {
+    cart.forEach((item) => {
       console.log(`${item.product.name} x${item.quantity} = R$ ${item.subtotal.toFixed(2)}`);
     });
     console.log('==================');
-    console.log(`TOTAL: R$ ${sale.total.toFixed(2)}`);
-    console.log(`Pagamento: ${sale.paymentMethod}`);
+    console.log(`TOTAL: R$ ${total.toFixed(2)}`);
+    console.log(`Pagamento: ${paymentMethod}`);
     console.log('==================');
     
     toast({
@@ -187,7 +177,7 @@ export function POSTerminal() {
               >
                 <span className="text-2xl">🛒</span>
                 <span className="text-sm font-medium line-clamp-2">{product.name}</span>
-                <span className="text-lg font-bold text-primary">R$ {product.price.toFixed(2)}</span>
+                <span className="text-lg font-bold text-primary">R$ {Number(product.price).toFixed(2)}</span>
               </motion.button>
             ))}
           </div>
@@ -218,7 +208,7 @@ export function POSTerminal() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{item.product.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      R$ {item.product.price.toFixed(2)} x {item.quantity}
+                      R$ {Number(item.product.price).toFixed(2)} x {item.quantity}
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
@@ -273,7 +263,7 @@ export function POSTerminal() {
                 variant="outline"
                 size="lg"
                 onClick={() => handlePayment('cash')}
-                disabled={cart.length === 0}
+                disabled={cart.length === 0 || createSale.isPending}
                 className="flex-col gap-1 h-auto py-3"
               >
                 <Banknote className="h-5 w-5" />
@@ -283,7 +273,7 @@ export function POSTerminal() {
                 variant="outline"
                 size="lg"
                 onClick={() => handlePayment('credit')}
-                disabled={cart.length === 0}
+                disabled={cart.length === 0 || createSale.isPending}
                 className="flex-col gap-1 h-auto py-3"
               >
                 <CreditCard className="h-5 w-5" />
@@ -293,7 +283,7 @@ export function POSTerminal() {
                 variant="outline"
                 size="lg"
                 onClick={() => handlePayment('debit')}
-                disabled={cart.length === 0}
+                disabled={cart.length === 0 || createSale.isPending}
                 className="flex-col gap-1 h-auto py-3"
               >
                 <CreditCard className="h-5 w-5" />
@@ -303,7 +293,7 @@ export function POSTerminal() {
                 variant="accent"
                 size="lg"
                 onClick={() => handlePayment('pix')}
-                disabled={cart.length === 0}
+                disabled={cart.length === 0 || createSale.isPending}
                 className="flex-col gap-1 h-auto py-3"
               >
                 <Smartphone className="h-5 w-5" />

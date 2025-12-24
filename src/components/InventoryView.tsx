@@ -5,30 +5,38 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { useStore } from '@/store/useStore';
+import { useProducts } from '@/hooks/useProducts';
 import { cn } from '@/lib/utils';
 
 export function InventoryView() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'low' | 'out'>('all');
-  const { products } = useStore();
+  const { products, isLoading } = useProducts();
 
   const filteredProducts = products.filter((p) => {
     const matchesSearch =
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.barcode.includes(search);
     
-    if (filter === 'low') return matchesSearch && p.stock <= p.minStock && p.stock > 0;
+    if (filter === 'low') return matchesSearch && p.stock <= p.min_stock && p.stock > 0;
     if (filter === 'out') return matchesSearch && p.stock === 0;
     return matchesSearch;
   });
 
   const stats = {
     total: products.length,
-    low: products.filter((p) => p.stock <= p.minStock && p.stock > 0).length,
+    low: products.filter((p) => p.stock <= p.min_stock && p.stock > 0).length,
     out: products.filter((p) => p.stock === 0).length,
-    healthy: products.filter((p) => p.stock > p.minStock).length,
+    healthy: products.filter((p) => p.stock > p.min_stock).length,
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -126,8 +134,8 @@ export function InventoryView() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <AnimatePresence>
           {filteredProducts.map((product) => {
-            const stockPercentage = Math.min((product.stock / (product.minStock * 3)) * 100, 100);
-            const isLow = product.stock <= product.minStock && product.stock > 0;
+            const stockPercentage = Math.min((product.stock / (product.min_stock * 3)) * 100, 100);
+            const isLow = product.stock <= product.min_stock && product.stock > 0;
             const isOut = product.stock === 0;
 
             return (
@@ -155,7 +163,7 @@ export function InventoryView() {
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Estoque</span>
                     <span className="font-medium">
-                      {product.stock} / {product.minStock * 3} {product.unit}
+                      {product.stock} / {product.min_stock * 3} {product.unit}
                     </span>
                   </div>
                   <Progress
@@ -169,7 +177,7 @@ export function InventoryView() {
                   />
                   <div className="flex justify-between text-sm pt-2">
                     <span className="text-muted-foreground">Mínimo</span>
-                    <span className="font-medium">{product.minStock} {product.unit}</span>
+                    <span className="font-medium">{product.min_stock} {product.unit}</span>
                   </div>
                 </div>
               </motion.div>
