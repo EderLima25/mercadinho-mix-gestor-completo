@@ -6,11 +6,16 @@ import { POSTerminal } from '@/components/POSTerminal';
 import { ProductManager } from '@/components/ProductManager';
 import { InventoryView } from '@/components/InventoryView';
 import { ImportExport } from '@/components/ImportExport';
+import { Reports } from '@/components/Reports';
+import { UserManagement } from '@/components/UserManagement';
+import { Settings } from '@/components/Settings';
+import { SupplierManager } from '@/components/SupplierManager';
+import { CashRegisterManager } from '@/components/CashRegisterManager';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { LogOut, User } from 'lucide-react';
 
-type View = 'dashboard' | 'pos' | 'products' | 'inventory' | 'import' | 'settings';
+type View = 'dashboard' | 'pos' | 'products' | 'inventory' | 'import' | 'reports' | 'users' | 'settings' | 'suppliers' | 'cash';
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -40,6 +45,11 @@ const Index = () => {
       case 'products': return <ProductManager />;
       case 'inventory': return <InventoryView />;
       case 'import': return <ImportExport />;
+      case 'reports': return <Reports />;
+      case 'users': return <UserManagement />;
+      case 'settings': return <Settings />;
+      case 'suppliers': return <SupplierManager />;
+      case 'cash': return <CashRegisterManager />;
       default: return <Dashboard />;
     }
   };
@@ -51,6 +61,11 @@ const Index = () => {
       case 'products': return 'Gerenciar Produtos';
       case 'inventory': return 'Controle de Estoque';
       case 'import': return 'Importar / Exportar';
+      case 'reports': return 'Relatórios';
+      case 'users': return 'Gerenciar Usuários';
+      case 'settings': return 'Configurações';
+      case 'suppliers': return 'Fornecedores';
+      case 'cash': return 'Controle de Caixa';
       default: return 'Dashboard';
     }
   };

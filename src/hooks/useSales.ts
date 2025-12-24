@@ -26,6 +26,24 @@ export interface Sale {
   }[];
 }
 
+export interface TopProduct {
+  product_id: string;
+  total_quantity: number;
+  product: {
+    id: string;
+    name: string;
+    price: number;
+    barcode: string;
+    stock: number;
+    cost_price: number;
+    min_stock: number;
+    category_id: string | null;
+    unit: string;
+    created_at: string;
+    updated_at: string;
+  };
+}
+
 export function useSales() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -41,6 +59,46 @@ export function useSales() {
       
       if (error) throw error;
       return data as Sale[];
+    },
+  });
+
+  // Buscar produtos mais vendidos
+  const { data: topProducts = [] } = useQuery({
+    queryKey: ['top-products'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sale_items')
+        .select(`
+          product_id,
+          quantity,
+          product:products(id, name, price, barcode, stock, cost_price, min_stock, category_id, unit, created_at, updated_at)
+        `)
+        .not('product', 'is', null);
+      
+      if (error) throw error;
+
+      // Agrupar por produto e somar quantidades
+      const productMap = new Map();
+      
+      data.forEach((item: any) => {
+        if (item.product) {
+          const productId = item.product_id;
+          if (productMap.has(productId)) {
+            productMap.get(productId).total_quantity += item.quantity;
+          } else {
+            productMap.set(productId, {
+              product_id: productId,
+              total_quantity: item.quantity,
+              product: item.product
+            });
+          }
+        }
+      });
+
+      // Converter para array e ordenar por quantidade vendida
+      return Array.from(productMap.values())
+        .sort((a, b) => b.total_quantity - a.total_quantity)
+        .slice(0, 8) as TopProduct[];
     },
   });
 
@@ -105,6 +163,7 @@ export function useSales() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['top-products'] });
       toast({ title: 'Venda finalizada!' });
     },
     onError: (error: Error) => {
@@ -128,6 +187,7 @@ export function useSales() {
     sales,
     todaySales,
     todayRevenue,
+    topProducts,
     isLoading,
     error,
     createSale,
