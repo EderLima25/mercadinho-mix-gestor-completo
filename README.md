@@ -1,73 +1,76 @@
-# Welcome to your Lovable project
+# 🏪 Mercadinho Mix - Sistema de Gestão Completo
 
-## Project info
+> **Versão 1.0.0** - Sistema completo de PDV e gestão para pequenos comércios
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+![Mercadinho Mix](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![React](https://img.shields.io/badge/React-18-blue.svg)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue.svg)
+![Supabase](https://img.shields.io/badge/Supabase-Ready-green.svg)
 
-## How can I edit this code?
+## 🎯 **Sobre o Projeto**
 
-There are several ways of editing your application.
+O **Mercadinho Mix** é um sistema completo de gestão para pequenos comércios, desenvolvido com tecnologias modernas e foco na experiência do usuário. Oferece todas as funcionalidades necessárias para gerenciar um estabelecimento comercial de forma eficiente e profissional.
 
-**Use Lovable**
+## ✨ **Funcionalidades Principais**
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+### 🛒 **PDV (Ponto de Venda)**
+- Interface intuitiva e responsiva
+- Busca por código de barras ou nome do produto
+- Carrinho com controle de quantidade
+- Múltiplas formas de pagamento (Dinheiro, Crédito, Débito, PIX)
+- Cálculo automático de troco
+- Sistema de desconto (percentual ou valor fixo)
+- Impressão de cupom fiscal
 
-Changes made via Lovable will be committed automatically to this repo.
+### 📦 **Gestão de Produtos**
+- CRUD completo de produtos
+- Sistema de categorias organizadas
+- Controle de estoque com alertas automáticos
+- Exclusão em lote para limpeza de dados
+- Validação de códigos de barras únicos
+- Preços de venda e custo
 
-**Use your preferred IDE**
+### 📊 **Dashboard e Relatórios**
+- Métricas em tempo real
+- Relatórios de vendas por período
+- Gráficos interativos de performance
+- Análise de produtos mais vendidos
+- Métodos de pagamento mais utilizados
+- Exportação de relatórios
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### 👥 **Gestão de Usuários**
+- Sistema de autenticação seguro
+- Controle de roles (Administrador, Gerente, Operador)
+- Permissões granulares por funcionalidade
+- Gerenciamento de equipe
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 🚀 **Instalação**
 
-Follow these steps:
+### 1. **Clone o repositório**
+```bash
+git clone https://github.com/seu-usuario/mercadinho-mix.git
+cd mercadinho-mix
+```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### 2. **Instale as dependências**
+```bash
+npm install
+```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### 3. **Configure o Supabase**
+1. Crie um projeto no [Supabase](https://supabase.com)
+2. Configure o arquivo `.env`
+3. Execute o script `setup_database.sql`
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+### 4. **Inicie o projeto**
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## 📄 **Licença**
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+MIT License - veja [CHANGELOG.md](CHANGELOG.md) para detalhes das versões.
 
-**Use GitHub Codespaces**
+---
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+**Mercadinho Mix v1.0** - Sistema de Gestão Completo 🏪
