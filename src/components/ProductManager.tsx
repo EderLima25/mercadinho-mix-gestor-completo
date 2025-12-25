@@ -29,6 +29,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 import { useProducts, Product } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import { Badge } from '@/components/ui/badge';
@@ -41,6 +49,11 @@ export function ProductManager() {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  
+  // Estados para paginação
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  
   const { products, addProduct, updateProduct, deleteProduct } = useProducts();
   const { categories } = useCategories();
 
@@ -60,6 +73,24 @@ export function ProductManager() {
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.barcode.includes(search)
   );
+
+  // Cálculos para paginação
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentProducts = filteredProducts.slice(startIndex, endIndex);
+
+  // Reset página quando filtro muda
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setCurrentPage(1);
+  };
+
+  // Reset página quando itens por página muda
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(parseInt(value));
+    setCurrentPage(1);
+  };
 
   const resetForm = () => {
     setFormData({
@@ -129,10 +160,16 @@ export function ProductManager() {
   };
 
   const handleSelectAll = () => {
-    if (selectedProducts.size === filteredProducts.length && filteredProducts.length > 0) {
-      setSelectedProducts(new Set());
+    if (selectedProducts.size === currentProducts.length && currentProducts.length > 0) {
+      // Remove apenas os produtos da página atual
+      const newSelected = new Set(selectedProducts);
+      currentProducts.forEach(p => newSelected.delete(p.id));
+      setSelectedProducts(newSelected);
     } else {
-      setSelectedProducts(new Set(filteredProducts.map(p => p.id)));
+      // Adiciona todos os produtos da página atual
+      const newSelected = new Set(selectedProducts);
+      currentProducts.forEach(p => newSelected.add(p.id));
+      setSelectedProducts(newSelected);
     }
   };
 
@@ -166,13 +203,26 @@ export function ProductManager() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Buscar por nome ou código de barras..."
             className="pl-10"
           />
         </div>
         
         <div className="flex gap-2">
+          <Select value={itemsPerPage.toString()} onValueChange={handleItemsPerPageChange}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="5">5 por página</SelectItem>
+              <SelectItem value="10">10 por página</SelectItem>
+              <SelectItem value="25">25 por página</SelectItem>
+              <SelectItem value="50">50 por página</SelectItem>
+              <SelectItem value="100">100 por página</SelectItem>
+            </SelectContent>
+          </Select>
+          
           {selectedProducts.size > 0 && (
             <Button
               variant="destructive"
@@ -361,7 +411,7 @@ export function ProductManager() {
                   onClick={handleSelectAll}
                   className="h-8 w-8 p-0"
                 >
-                  {selectedProducts.size === filteredProducts.length && filteredProducts.length > 0 ? (
+                  {selectedProducts.size > 0 && currentProducts.every(p => selectedProducts.has(p.id)) && currentProducts.length > 0 ? (
                     <CheckSquare className="h-4 w-4" />
                   ) : (
                     <Square className="h-4 w-4" />
@@ -378,7 +428,7 @@ export function ProductManager() {
           </TableHeader>
           <TableBody>
             <AnimatePresence>
-              {filteredProducts.map((product) => (
+              {currentProducts.map((product) => (
                 <motion.tr
                   key={product.id}
                   initial={{ opacity: 0 }}
@@ -447,14 +497,84 @@ export function ProductManager() {
           </TableBody>
         </Table>
 
-        {filteredProducts.length === 0 && (
+        {currentProducts.length === 0 && filteredProducts.length === 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <Package className="mb-4 h-12 w-12" />
             <p className="text-lg font-medium">Nenhum produto encontrado</p>
             <p className="text-sm">Cadastre seu primeiro produto para começar!</p>
           </div>
         )}
+
+        {currentProducts.length === 0 && filteredProducts.length > 0 && (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <Package className="mb-4 h-12 w-12" />
+            <p className="text-lg font-medium">Nenhum produto nesta página</p>
+            <p className="text-sm">Tente voltar para a página anterior</p>
+          </div>
+        )}
       </Card>
+
+      {/* Informações de paginação e controles */}
+      {filteredProducts.length > 0 && (
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm text-muted-foreground">
+            Mostrando {startIndex + 1} a {Math.min(endIndex, filteredProducts.length)} de {filteredProducts.length} produtos
+          </div>
+          
+          {totalPages > 1 && (
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+                
+                {/* Páginas */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                  // Mostrar apenas algumas páginas ao redor da atual
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 1 && page <= currentPage + 1)
+                  ) {
+                    return (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  }
+                  
+                  // Mostrar reticências
+                  if (page === currentPage - 2 || page === currentPage + 2) {
+                    return (
+                      <PaginationItem key={page}>
+                        <span className="flex h-9 w-9 items-center justify-center text-sm">...</span>
+                      </PaginationItem>
+                    );
+                  }
+                  
+                  return null;
+                })}
+                
+                <PaginationItem>
+                  <PaginationNext 
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
+        </div>
+      )}
     </div>
   );
 }
