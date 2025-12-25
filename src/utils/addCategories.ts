@@ -119,8 +119,3 @@ export async function addCategories() {
     console.error('Erro geral:', error);
   }
 }
-
-// Executar se chamado diretamente
-if (import.meta.url === `file://${process.argv[1]}`) {
-  addCategories();
-}
