@@ -47,6 +47,7 @@ import { useProducts, Product } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import { Badge } from '@/components/ui/badge';
 import { ProductCleaner } from './ProductCleaner';
+import { CategoryManager } from './CategoryManager';
 import { generateEAN13 } from '@/utils/barcodeGenerator';
 
 export function ProductManager() {
@@ -209,6 +210,9 @@ export function ProductManager() {
     <div className="space-y-6">
       {/* Componente temporário para limpeza de produtos */}
       <ProductCleaner />
+      
+      {/* Gerenciador de categorias */}
+      <CategoryManager />
       
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1 max-w-md">
