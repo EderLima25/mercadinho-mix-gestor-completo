@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Edit2, Trash2, Package, AlertTriangle, CheckSquare, Square } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Package, AlertTriangle, CheckSquare, Square, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -21,6 +21,12 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -41,6 +47,7 @@ import { useProducts, Product } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import { Badge } from '@/components/ui/badge';
 import { ProductCleaner } from './ProductCleaner';
+import { generateEAN13 } from '@/utils/barcodeGenerator';
 
 export function ProductManager() {
   const [search, setSearch] = useState('');
@@ -90,6 +97,11 @@ export function ProductManager() {
   const handleItemsPerPageChange = (value: string) => {
     setItemsPerPage(parseInt(value));
     setCurrentPage(1);
+  };
+
+  const handleGenerateBarcode = () => {
+    const newBarcode = generateEAN13();
+    setFormData({ ...formData, barcode: newBarcode });
   };
 
   const resetForm = () => {
@@ -262,12 +274,32 @@ export function ProductManager() {
                 </div>
                 <div className="sm:col-span-2">
                   <Label htmlFor="barcode">Código de Barras</Label>
-                  <Input
-                    id="barcode"
-                    value={formData.barcode}
-                    onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-                    required
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="barcode"
+                      value={formData.barcode}
+                      onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                      placeholder="Digite ou gere um código EAN-13"
+                      required
+                    />
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={handleGenerateBarcode}
+                          >
+                            <BarChart3 className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Gerar código EAN-13 válido</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="price">Preço de Venda (R$)</Label>
