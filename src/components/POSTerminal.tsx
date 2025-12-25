@@ -4,6 +4,15 @@ import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartp
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { useProducts, Product } from '@/hooks/useProducts';
 import { useSales } from '@/hooks/useSales';
 import { QuickProductModal } from './QuickProductModal';
@@ -15,6 +24,7 @@ interface CartItem {
   product: Product;
   quantity: number;
   subtotal: number;
+  isWeightBased?: boolean;
 }
 
 export function POSTerminal() {
@@ -30,6 +40,9 @@ export function POSTerminal() {
   const [receivedAmount, setReceivedAmount] = useState('');
   const [isConnectedToPrinter, setIsConnectedToPrinter] = useState(false);
   const [isScannerActive, setIsScannerActive] = useState(false);
+  const [weightInput, setWeightInput] = useState<{[key: string]: string}>({});
+  const [showWeightDialog, setShowWeightDialog] = useState(false);
+  const [selectedProductForWeight, setSelectedProductForWeight] = useState<Product | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { products, getProductByBarcode } = useProducts();
   const { createSale, topProducts } = useSales();
@@ -39,17 +52,42 @@ export function POSTerminal() {
   const barcodeScanner = BarcodeScanner.getInstance();
   const thermalPrinter = ThermalPrinter.getInstance();
 
+  // Função para verificar se produto é vendido por peso/volume
+  const isWeightBasedProduct = (product: Product) => {
+    return product.unit === 'kg' || product.unit === 'l';
+  };
+
   const addToCart = useCallback((product: Product, quantity: number = 1) => {
+    const isWeightBased = isWeightBasedProduct(product);
+    
+    // Se é produto por peso/volume, abrir dialog para inserir quantidade
+    if (isWeightBased && quantity === 1) {
+      setSelectedProductForWeight(product);
+      setShowWeightDialog(true);
+      return;
+    }
+
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
       if (existing) {
+        const newQuantity = existing.quantity + quantity;
         return prev.map((item) =>
           item.product.id === product.id
-            ? { ...item, quantity: item.quantity + quantity, subtotal: (item.quantity + quantity) * Number(item.product.price) }
+            ? { 
+                ...item, 
+                quantity: newQuantity, 
+                subtotal: newQuantity * Number(item.product.price),
+                isWeightBased 
+              }
             : item
         );
       }
-      return [...prev, { product, quantity, subtotal: Number(product.price) * quantity }];
+      return [...prev, { 
+        product, 
+        quantity, 
+        subtotal: Number(product.price) * quantity,
+        isWeightBased 
+      }];
     });
     
     // Limpar busca após adicionar produto
@@ -143,9 +181,16 @@ export function POSTerminal() {
       prev
         .map((item) => {
           if (item.product.id === productId) {
-            const newQuantity = item.quantity + delta;
+            const isWeightBased = isWeightBasedProduct(item.product);
+            const increment = isWeightBased ? 0.1 : 1; // Incremento menor para produtos por peso
+            const newQuantity = Math.max(0, item.quantity + (delta * increment));
+            
             if (newQuantity <= 0) return null;
-            return { ...item, quantity: newQuantity, subtotal: newQuantity * Number(item.product.price) };
+            return { 
+              ...item, 
+              quantity: Math.round(newQuantity * 100) / 100, // Arredondar para 2 casas decimais
+              subtotal: (Math.round(newQuantity * 100) / 100) * Number(item.product.price) 
+            };
           }
           return item;
         })
@@ -155,6 +200,60 @@ export function POSTerminal() {
 
   const removeFromCart = (productId: string) => {
     setCart((prev) => prev.filter((item) => item.product.id !== productId));
+  };
+
+  // Função para adicionar produto com peso específico
+  const addProductWithWeight = (product: Product, weight: number) => {
+    if (weight <= 0) {
+      toast({
+        title: 'Peso inválido',
+        description: 'O peso deve ser maior que zero.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Verificar se há estoque suficiente
+    if (weight > product.stock) {
+      toast({
+        title: 'Estoque insuficiente',
+        description: `Disponível: ${product.stock} ${product.unit}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setCart((prev) => {
+      const existing = prev.find((item) => item.product.id === product.id);
+      if (existing) {
+        const newQuantity = existing.quantity + weight;
+        return prev.map((item) =>
+          item.product.id === product.id
+            ? { 
+                ...item, 
+                quantity: Math.round(newQuantity * 100) / 100,
+                subtotal: (Math.round(newQuantity * 100) / 100) * Number(item.product.price),
+                isWeightBased: true
+              }
+            : item
+        );
+      }
+      return [...prev, { 
+        product, 
+        quantity: Math.round(weight * 100) / 100,
+        subtotal: (Math.round(weight * 100) / 100) * Number(product.price),
+        isWeightBased: true
+      }];
+    });
+
+    setShowWeightDialog(false);
+    setSelectedProductForWeight(null);
+    setWeightInput({});
+    
+    toast({
+      title: 'Produto adicionado',
+      description: `${product.name} - ${weight} ${product.unit}`,
+    });
   };
 
   const total = cart.reduce((sum, item) => sum + item.subtotal, 0);
@@ -223,6 +322,18 @@ export function POSTerminal() {
       }
     }
 
+    // Verificar estoque antes de finalizar venda
+    for (const item of cart) {
+      if (item.quantity > item.product.stock) {
+        toast({
+          title: 'Estoque insuficiente',
+          description: `${item.product.name}: disponível ${item.product.stock} ${item.product.unit}, solicitado ${item.quantity} ${item.product.unit}`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     const items = cart.map(item => ({
       product_id: item.product.id,
       quantity: item.quantity,
@@ -247,9 +358,11 @@ export function POSTerminal() {
     const receiptData = {
       items: cart.map(item => ({
         name: item.product.name,
-        quantity: item.quantity,
+        quantity: item.isWeightBased ? parseFloat(item.quantity.toFixed(2)) : item.quantity,
+        unit: item.product.unit,
         unitPrice: Number(item.product.price),
         subtotal: item.subtotal,
+        isWeightBased: item.isWeightBased,
       })),
       subtotal: total,
       discount: discountAmount,
@@ -468,7 +581,10 @@ export function POSTerminal() {
                         Código: {item.product.barcode}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        R$ {Number(item.product.price).toFixed(2)} x {item.quantity}
+                        R$ {Number(item.product.price).toFixed(2)} 
+                        {item.isWeightBased ? ` por ${item.product.unit}` : ''} 
+                        × {item.isWeightBased ? item.quantity.toFixed(2) : item.quantity}
+                        {item.isWeightBased ? ` ${item.product.unit}` : ''}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -480,7 +596,9 @@ export function POSTerminal() {
                       >
                         <Minus className="h-4 w-4" />
                       </Button>
-                      <span className="w-12 text-center font-bold text-lg">{item.quantity}</span>
+                      <span className="w-12 text-center font-bold text-lg">
+                        {item.isWeightBased ? item.quantity.toFixed(2) : item.quantity}
+                      </span>
                       <Button
                         variant="outline"
                         size="icon"
@@ -685,6 +803,80 @@ export function POSTerminal() {
         barcode={unknownBarcode}
         onProductAdded={handleProductAdded}
       />
+
+      {/* Dialog para inserir peso/volume */}
+      <Dialog open={showWeightDialog} onOpenChange={setShowWeightDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Informar Quantidade</DialogTitle>
+            <DialogDescription>
+              {selectedProductForWeight && (
+                <>
+                  Produto: <strong>{selectedProductForWeight.name}</strong><br/>
+                  Preço: <strong>R$ {Number(selectedProductForWeight.price).toFixed(2)} por {selectedProductForWeight.unit}</strong><br/>
+                  Estoque disponível: <strong>{selectedProductForWeight.stock} {selectedProductForWeight.unit}</strong>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedProductForWeight && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="weight">
+                  Quantidade ({selectedProductForWeight.unit})
+                </Label>
+                <Input
+                  id="weight"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={selectedProductForWeight.stock}
+                  placeholder={`Ex: 1.5 ${selectedProductForWeight.unit}`}
+                  value={weightInput[selectedProductForWeight.id] || ''}
+                  onChange={(e) => setWeightInput({
+                    ...weightInput,
+                    [selectedProductForWeight.id]: e.target.value
+                  })}
+                  autoFocus
+                />
+              </div>
+              
+              {weightInput[selectedProductForWeight.id] && (
+                <div className="p-3 bg-muted rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <span>Total:</span>
+                    <span className="font-bold text-lg">
+                      R$ {(parseFloat(weightInput[selectedProductForWeight.id]) * Number(selectedProductForWeight.price)).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowWeightDialog(false);
+              setSelectedProductForWeight(null);
+              setWeightInput({});
+            }}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={() => {
+                if (selectedProductForWeight && weightInput[selectedProductForWeight.id]) {
+                  const weight = parseFloat(weightInput[selectedProductForWeight.id]);
+                  addProductWithWeight(selectedProductForWeight, weight);
+                }
+              }}
+              disabled={!selectedProductForWeight || !weightInput[selectedProductForWeight.id] || parseFloat(weightInput[selectedProductForWeight.id] || '0') <= 0}
+            >
+              Adicionar ao Carrinho
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
