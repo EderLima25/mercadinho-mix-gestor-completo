@@ -122,6 +122,17 @@
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Nunito', sans-serif;
   }
+
+  html, body {
+    height: 100%;
+    overflow-x: hidden;
+  }
+
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
 }
 
 @layer utilities {
