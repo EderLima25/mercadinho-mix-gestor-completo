@@ -73,8 +73,8 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
           x: isMobileOpen || window.innerWidth >= 1024 ? 0 : -280,
         }}
         className={cn(
-          'fixed left-0 top-0 z-40 flex h-screen flex-col border-r bg-slate-800 transition-all duration-300',
-          'lg:relative lg:translate-x-0'
+          'fixed left-0 top-0 z-40 flex h-full min-h-screen flex-col border-r bg-slate-800 transition-all duration-300',
+          'lg:sticky lg:translate-x-0 lg:h-screen lg:min-h-screen'
         )}
       >
         {/* Logo */}
