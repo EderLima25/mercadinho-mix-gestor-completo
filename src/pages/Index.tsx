@@ -74,8 +74,8 @@ const Index = () => {
     <div className="flex min-h-screen bg-background">
       <Sidebar currentView={currentView} onViewChange={setCurrentView} />
       
-      <main className="flex-1 overflow-auto">
-        <div className="container mx-auto p-6 lg:p-8">
+      <main className="flex-1 min-h-screen overflow-auto lg:ml-0">
+        <div className="container mx-auto p-6 lg:p-8 min-h-full">
           <header className="mb-8 flex items-center justify-between">
             <h1 className="text-2xl font-bold lg:text-3xl">{getPageTitle()}</h1>
             <div className="flex items-center gap-3">
