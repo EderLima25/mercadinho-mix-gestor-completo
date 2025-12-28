@@ -81,13 +81,18 @@ export function useOffline() {
       const finalStatus = actualStatus && navigatorStatus;
       
       if (finalStatus !== isOnline) {
-        console.log('Status change detected - actualStatus:', actualStatus, 'navigatorStatus:', navigatorStatus, 'finalStatus:', finalStatus);
+        // Only log when there's an actual change, not repeated states
+        if (finalStatus) {
+          console.log('Network restored: going online');
+        } else {
+          console.log('Network lost: going offline');
+        }
         setIsOnline(finalStatus);
         if (finalStatus && offlineQueue.length > 0) {
           setTimeout(() => processOfflineQueue(), 1000);
         }
       }
-    }, 10000); // Reduced frequency to every 10 seconds
+    }, 15000); // Increased to 15 seconds to reduce frequency even more
 
     return () => {
       window.removeEventListener('online', handleOnline);
