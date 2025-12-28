@@ -13,20 +13,85 @@ import { SupplierManager } from '@/components/SupplierManager';
 import { CashRegisterManager } from '@/components/CashRegisterManager';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, Download } from 'lucide-react';
+import { isPWAInstalled } from '@/utils/pwaUtils';
+import { useToast } from '@/hooks/use-toast';
 
 type View = 'dashboard' | 'pos' | 'products' | 'inventory' | 'import' | 'reports' | 'users' | 'settings' | 'suppliers' | 'cash';
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const { user, loading, signOut } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
+  const [showInstallButton, setShowInstallButton] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
       navigate('/auth');
     }
   }, [user, loading, navigate]);
+
+  useEffect(() => {
+    // Show install button if PWA is not installed
+    const checkInstallability = () => {
+      const isInstalled = isPWAInstalled();
+      const isDesktop = window.innerWidth >= 768;
+      
+      // On desktop, always show the button if not installed
+      // On mobile, show only if no automatic prompt appeared
+      if (!isInstalled) {
+        if (isDesktop) {
+          setShowInstallButton(true);
+        } else {
+          // On mobile, show button after 5 seconds if no prompt appeared
+          setTimeout(() => {
+            setShowInstallButton(true);
+          }, 5000);
+        }
+      }
+    };
+
+    checkInstallability();
+    
+    // Re-check on resize
+    window.addEventListener('resize', checkInstallability);
+    return () => window.removeEventListener('resize', checkInstallability);
+  }, []);
+
+  const handleInstallClick = () => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+    const isChrome = /Chrome/.test(navigator.userAgent);
+    const isEdge = /Edg/.test(navigator.userAgent);
+    
+    let instructions = '';
+    
+    if (isIOS) {
+      instructions = 'No Safari: toque no ícone de compartilhar (↗) e selecione "Adicionar à Tela de Início"';
+    } else if (isAndroid) {
+      instructions = 'No Chrome: toque no menu (⋮) e selecione "Adicionar à tela inicial"';
+    } else if (isChrome || isEdge) {
+      instructions = 'Procure o ícone de instalação (⬇) na barra de endereços (lado direito) ou vá no menu > "Instalar Mercadinho Mix"';
+    } else {
+      instructions = 'Use Chrome ou Edge para melhor suporte a PWA. No Firefox: Menu > "Instalar este site como app"';
+    }
+    
+    // Log debug info
+    console.log('=== PWA Install Debug ===');
+    console.log('User Agent:', navigator.userAgent);
+    console.log('Is Chrome:', isChrome);
+    console.log('Is Edge:', isEdge);
+    console.log('Is iOS:', isIOS);
+    console.log('Is Android:', isAndroid);
+    console.log('PWA Installed:', isPWAInstalled());
+    console.log('========================');
+    
+    toast({
+      title: 'Como instalar o app',
+      description: instructions,
+    });
+  };
 
   if (loading) {
     return (
@@ -88,6 +153,18 @@ const Index = () => {
               <h1 className="text-2xl font-bold lg:text-3xl">{getPageTitle()}</h1>
             </div>
             <div className="flex items-center gap-3">
+              {showInstallButton && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleInstallClick}
+                  className="hidden sm:flex"
+                  title="Instalar como app"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Instalar App
+                </Button>
+              )}
               <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
                 <User className="h-4 w-4" />
                 <span>{user.email}</span>
