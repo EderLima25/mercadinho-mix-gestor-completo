@@ -379,6 +379,8 @@ export function POSTerminal() {
     if (cart.length === 0) return;
 
     try {
+      console.log('handlePayment called');
+      
       // Validações para pagamento em dinheiro
       if (selectedPaymentMethod === 'cash') {
         if (receivedValue < finalTotal) {
@@ -412,21 +414,26 @@ export function POSTerminal() {
 
       console.log('Calling createSale.mutateAsync...');
       
-      await createSale.mutateAsync({
+      // Usar mutate ao invés de mutateAsync para evitar problemas com promises
+      createSale.mutate({
         items,
         total: finalTotal,
         paymentMethod: selectedPaymentMethod,
+      }, {
+        onSuccess: () => {
+          console.log('Sale completed, clearing cart...');
+          // Limpar formulário após venda
+          setCart([]);
+          setDiscount(0);
+          setReceivedAmount('');
+          
+          // Imprimir cupom
+          printReceipt();
+        },
+        onError: (error) => {
+          console.error('Error in mutation:', error);
+        }
       });
-
-      console.log('Sale completed, clearing cart...');
-
-      // Limpar formulário após venda
-      setCart([]);
-      setDiscount(0);
-      setReceivedAmount('');
-      
-      // Imprimir cupom
-      printReceipt();
       
     } catch (error) {
       console.error('Error in handlePayment:', error);

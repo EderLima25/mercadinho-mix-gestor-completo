@@ -11,14 +11,18 @@ export function useOffline() {
     }
   });
 
+  console.log('useOffline - isOnline:', isOnline, 'navigator.onLine:', navigator.onLine);
+
   useEffect(() => {
     const handleOnline = () => {
+      console.log('Network status changed: ONLINE');
       setIsOnline(true);
       // Process offline queue when back online
       processOfflineQueue();
     };
 
     const handleOffline = () => {
+      console.log('Network status changed: OFFLINE');
       setIsOnline(false);
     };
 
