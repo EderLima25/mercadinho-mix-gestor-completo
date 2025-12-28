@@ -26,7 +26,7 @@ export default function Auth() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, signUp, user, createOfflineUser } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -96,12 +96,21 @@ export default function Auth() {
         <Card className="p-8">
           {/* Logo */}
           <div className="flex flex-col items-center mb-8">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-glow mb-4">
-              <Store className="h-8 w-8 text-primary-foreground" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl overflow-hidden bg-white shadow-glow mb-4">
+              <img 
+                src="/Mercadinho.jpg" 
+                alt="Mercadinho Mix" 
+                className="h-full w-full object-cover"
+              />
             </div>
             <h1 className="text-2xl font-bold">Mercadinho Mix</h1>
             <p className="text-muted-foreground">
               {isLogin ? 'Entre na sua conta' : 'Crie sua conta'}
+              {!navigator.onLine && (
+                <span className="block text-xs text-yellow-600 mt-1">
+                  🔸 Modo Offline
+                </span>
+              )}
             </p>
           </div>
 
@@ -183,7 +192,7 @@ export default function Auth() {
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center space-y-3">
             <button
               type="button"
               onClick={() => {
@@ -198,6 +207,23 @@ export default function Auth() {
                 <>Já tem conta? <span className="font-medium text-primary">Entrar</span></>
               )}
             </button>
+
+            {/* Offline Demo User Button */}
+            {!navigator.onLine && (
+              <div className="pt-3 border-t">
+                <p className="text-xs text-muted-foreground mb-2">Modo Offline</p>
+                <button
+                  type="button"
+                  onClick={createOfflineUser}
+                  className="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded-md hover:bg-yellow-200 transition-colors"
+                >
+                  Criar Usuário Demo Offline
+                </button>
+                <p className="text-xs text-muted-foreground mt-1">
+                  admin@mercadinho.com / admin123
+                </p>
+              </div>
+            )}
           </div>
         </Card>
       </motion.div>

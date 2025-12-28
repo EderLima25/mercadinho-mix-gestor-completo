@@ -1,6 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { LocalCache } from '@/utils/localCache';
+import { useOffline } from '@/hooks/useOffline';
+import { useEffect } from 'react';
 
 export interface Product {
   id: string;
@@ -31,34 +34,74 @@ export interface ProductInsert {
 export function useProducts() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { isOnline, addToOfflineQueue } = useOffline();
+  const localCache = LocalCache.getInstance();
 
   const { data: products = [], isLoading, error } = useQuery({
     queryKey: ['products'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*, category:categories(*)')
-        .order('name');
-      
-      if (error) throw error;
-      return data as Product[];
+      if (isOnline) {
+        try {
+          const { data, error } = await supabase
+            .from('products')
+            .select('*, category:categories(*)')
+            .order('name');
+          
+          if (error) throw error;
+          
+          // Cache products locally
+          await localCache.saveProducts(data);
+          return data as Product[];
+        } catch (error) {
+          // If online but request fails, fallback to cache
+          console.warn('Failed to fetch from server, using cache:', error);
+          return await localCache.getProducts();
+        }
+      } else {
+        // Offline: use cached data
+        return await localCache.getProducts();
+      }
     },
   });
 
+  // Initialize local cache on mount
+  useEffect(() => {
+    localCache.init();
+  }, []);
+
   const addProduct = useMutation({
     mutationFn: async (product: ProductInsert) => {
-      const { data, error } = await supabase
-        .from('products')
-        .insert(product)
-        .select('*, category:categories(*)')
-        .single();
-      
-      if (error) throw error;
-      return data as Product;
+      if (isOnline) {
+        const { data, error } = await supabase
+          .from('products')
+          .insert(product)
+          .select('*, category:categories(*)')
+          .single();
+        
+        if (error) throw error;
+        return data as Product;
+      } else {
+        // Offline: queue for later sync
+        const tempProduct = {
+          ...product,
+          id: `temp_${Date.now()}`,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        
+        addToOfflineQueue({
+          type: 'addProduct',
+          data: product
+        });
+        
+        return tempProduct as Product;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      toast({ title: 'Produto cadastrado com sucesso!' });
+      toast({ 
+        title: isOnline ? 'Produto cadastrado com sucesso!' : 'Produto salvo offline - será sincronizado quando conectar'
+      });
     },
     onError: (error: Error) => {
       toast({ 
@@ -71,19 +114,38 @@ export function useProducts() {
 
   const updateProduct = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Product> & { id: string }) => {
-      const { data, error } = await supabase
-        .from('products')
-        .update(updates)
-        .eq('id', id)
-        .select('*, category:categories(*)')
-        .single();
-      
-      if (error) throw error;
-      return data as Product;
+      if (isOnline) {
+        const { data, error } = await supabase
+          .from('products')
+          .update(updates)
+          .eq('id', id)
+          .select('*, category:categories(*)')
+          .single();
+        
+        if (error) throw error;
+        return data as Product;
+      } else {
+        // Offline: queue for later sync
+        addToOfflineQueue({
+          type: 'updateProduct',
+          data: { id, ...updates }
+        });
+        
+        // Update local cache
+        const cachedProducts = await localCache.getProducts();
+        const updatedProducts = cachedProducts.map(p => 
+          p.id === id ? { ...p, ...updates } : p
+        );
+        await localCache.saveProducts(updatedProducts);
+        
+        return { id, ...updates } as Product;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      toast({ title: 'Produto atualizado!' });
+      toast({ 
+        title: isOnline ? 'Produto atualizado!' : 'Produto atualizado offline - será sincronizado quando conectar'
+      });
     },
     onError: (error: Error) => {
       toast({ 
@@ -96,16 +158,26 @@ export function useProducts() {
 
   const deleteProduct = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
+      if (isOnline) {
+        const { error } = await supabase
+          .from('products')
+          .delete()
+          .eq('id', id);
+        
+        if (error) throw error;
+      } else {
+        // Offline: queue for later sync
+        addToOfflineQueue({
+          type: 'deleteProduct',
+          data: { id }
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      toast({ title: 'Produto removido!' });
+      toast({ 
+        title: isOnline ? 'Produto removido!' : 'Produto marcado para remoção - será sincronizado quando conectar'
+      });
     },
     onError: (error: Error) => {
       toast({ 
@@ -121,33 +193,64 @@ export function useProducts() {
       const product = products.find(p => p.id === id);
       if (!product) throw new Error('Produto não encontrado');
       
-      const { error } = await supabase
-        .from('products')
-        .update({ stock: product.stock - quantity })
-        .eq('id', id);
-      
-      if (error) throw error;
+      if (isOnline) {
+        const { error } = await supabase
+          .from('products')
+          .update({ stock: product.stock - quantity })
+          .eq('id', id);
+        
+        if (error) throw error;
+      } else {
+        // Offline: update local cache and queue for sync
+        const newStock = product.stock - quantity;
+        addToOfflineQueue({
+          type: 'updateStock',
+          data: { id, stock: newStock }
+        });
+        
+        // Update local cache
+        const cachedProducts = await localCache.getProducts();
+        const updatedProducts = cachedProducts.map(p => 
+          p.id === id ? { ...p, stock: newStock } : p
+        );
+        await localCache.saveProducts(updatedProducts);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 
-  const getProductByBarcode = (barcode: string) => {
-    return products.find(p => p.barcode === barcode);
+  const getProductByBarcode = async (barcode: string): Promise<Product | null> => {
+    if (isOnline) {
+      return products.find(p => p.barcode === barcode) || null;
+    } else {
+      // Offline: search in local cache
+      return await localCache.getProductByBarcode(barcode);
+    }
   };
 
   const importProducts = useMutation({
     mutationFn: async (productsToImport: ProductInsert[]) => {
-      const { error } = await supabase
-        .from('products')
-        .upsert(productsToImport, { onConflict: 'barcode' });
-      
-      if (error) throw error;
+      if (isOnline) {
+        const { error } = await supabase
+          .from('products')
+          .upsert(productsToImport, { onConflict: 'barcode' });
+        
+        if (error) throw error;
+      } else {
+        // Offline: queue for later sync
+        addToOfflineQueue({
+          type: 'importProducts',
+          data: productsToImport
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      toast({ title: 'Produtos importados com sucesso!' });
+      toast({ 
+        title: isOnline ? 'Produtos importados com sucesso!' : 'Produtos salvos offline - serão sincronizados quando conectar'
+      });
     },
     onError: (error: Error) => {
       toast({ 
@@ -168,5 +271,6 @@ export function useProducts() {
     updateStock,
     getProductByBarcode,
     importProducts,
+    isOnline,
   };
 }

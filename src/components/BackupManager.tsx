@@ -63,7 +63,7 @@ export function BackupManager() {
 
         // Buscar dados da tabela
         const { data, error } = await supabase
-          .from(table as any)
+          .from(table)
           .select('*');
 
         if (error) {
@@ -134,11 +134,11 @@ export function BackupManager() {
         
         if (records && records.length > 0) {
           // Limpar tabela existente (cuidado!)
-          await supabase.from(table as any).delete().neq('id', '00000000-0000-0000-0000-000000000000');
+          await supabase.from(table).delete().neq('id', '00000000-0000-0000-0000-000000000000');
           
           // Inserir dados do backup
           const { error } = await supabase
-            .from(table as any)
+            .from(table)
             .insert(records);
 
           if (error) {

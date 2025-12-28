@@ -77,7 +77,16 @@ const Index = () => {
       <main className="flex-1 min-h-screen overflow-auto lg:ml-0">
         <div className="container mx-auto p-6 lg:p-8 min-h-full">
           <header className="mb-8 flex items-center justify-between">
-            <h1 className="text-2xl font-bold lg:text-3xl">{getPageTitle()}</h1>
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg overflow-hidden bg-white shadow-sm">
+                <img 
+                  src="/Mercadinho.jpg" 
+                  alt="Mercadinho Mix" 
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <h1 className="text-2xl font-bold lg:text-3xl">{getPageTitle()}</h1>
+            </div>
             <div className="flex items-center gap-3">
               <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
                 <User className="h-4 w-4" />

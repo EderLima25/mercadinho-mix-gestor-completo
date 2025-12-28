@@ -43,6 +43,7 @@ export function POSTerminal() {
   const [weightInput, setWeightInput] = useState<{[key: string]: string}>({});
   const [showWeightDialog, setShowWeightDialog] = useState(false);
   const [selectedProductForWeight, setSelectedProductForWeight] = useState<Product | null>(null);
+  const [editingQuantity, setEditingQuantity] = useState<{[key: string]: string}>({});
   const inputRef = useRef<HTMLInputElement>(null);
   const { products, getProductByBarcode } = useProducts();
   const { createSale, topProducts } = useSales();
@@ -97,6 +98,17 @@ export function POSTerminal() {
     inputRef.current?.focus();
   }, []);
 
+  // Função para processar entrada com multiplicação (ex: 7*789456123)
+  const parseQuantityAndBarcode = (input: string) => {
+    const multiplyMatch = input.match(/^(\d+(?:\.\d+)?)\*(.+)$/);
+    if (multiplyMatch) {
+      const quantity = parseFloat(multiplyMatch[1]);
+      const barcode = multiplyMatch[2].trim();
+      return { quantity, barcode };
+    }
+    return { quantity: 1, barcode: input.trim() };
+  };
+
   // Função para buscar produtos por nome ou código de barras
   const searchProducts = useCallback((query: string) => {
     if (!query.trim()) {
@@ -105,9 +117,12 @@ export function POSTerminal() {
       return;
     }
 
+    // Extrair quantidade e código/nome do produto
+    const { barcode } = parseQuantityAndBarcode(query);
+
     const results = products.filter(product => 
-      product.name.toLowerCase().includes(query.toLowerCase()) ||
-      product.barcode.includes(query)
+      product.name.toLowerCase().includes(barcode.toLowerCase()) ||
+      product.barcode.includes(barcode)
     ).slice(0, 5); // Limitar a 5 resultados
 
     setSearchResults(results);
@@ -120,9 +135,12 @@ export function POSTerminal() {
     searchProducts(value);
   };
 
-  const handleBarcodeSubmit = (e: React.FormEvent) => {
+  const handleBarcodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!barcodeInput.trim()) return;
+
+    // Processar quantidade e código de barras
+    const { quantity, barcode } = parseQuantityAndBarcode(barcodeInput);
 
     // Se há resultados de busca, adicionar o primeiro
     if (searchResults.length > 0) {
@@ -134,17 +152,17 @@ export function POSTerminal() {
           variant: 'destructive',
         });
       } else {
-        addToCart(product);
+        addToCart(product, quantity);
         toast({
           title: 'Produto adicionado',
-          description: `${product.name} adicionado ao carrinho.`,
+          description: `${product.name} ${quantity > 1 ? `(${quantity}x)` : ''} adicionado ao carrinho.`,
         });
       }
       return;
     }
 
     // Busca exata por código de barras
-    const product = getProductByBarcode(barcodeInput.trim());
+    const product = await getProductByBarcode(barcode);
     
     if (product) {
       if (product.stock <= 0) {
@@ -154,14 +172,14 @@ export function POSTerminal() {
           variant: 'destructive',
         });
       } else {
-        addToCart(product);
+        addToCart(product, quantity);
         toast({
           title: 'Produto adicionado',
-          description: `${product.name} adicionado ao carrinho.`,
+          description: `${product.name} ${quantity > 1 ? `(${quantity}x)` : ''} adicionado ao carrinho.`,
         });
       }
     } else {
-      setUnknownBarcode(barcodeInput.trim());
+      setUnknownBarcode(barcode);
       setShowQuickAdd(true);
       toast({
         title: 'Produto não encontrado',
@@ -196,6 +214,56 @@ export function POSTerminal() {
         })
         .filter(Boolean) as CartItem[]
     );
+  };
+
+  // Função para atualizar quantidade diretamente
+  const setQuantityDirectly = (productId: string, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      removeFromCart(productId);
+      return;
+    }
+
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.product.id === productId) {
+          const isWeightBased = isWeightBasedProduct(item.product);
+          const finalQuantity = isWeightBased 
+            ? Math.round(newQuantity * 100) / 100 
+            : Math.round(newQuantity);
+          
+          return { 
+            ...item, 
+            quantity: finalQuantity,
+            subtotal: finalQuantity * Number(item.product.price) 
+          };
+        }
+        return item;
+      })
+    );
+  };
+
+  // Função para lidar com edição de quantidade
+  const handleQuantityEdit = (productId: string, value: string) => {
+    setEditingQuantity(prev => ({
+      ...prev,
+      [productId]: value
+    }));
+  };
+
+  // Função para confirmar edição de quantidade
+  const confirmQuantityEdit = (productId: string) => {
+    const value = editingQuantity[productId];
+    if (value !== undefined) {
+      const newQuantity = parseFloat(value);
+      if (!isNaN(newQuantity) && newQuantity >= 0) {
+        setQuantityDirectly(productId, newQuantity);
+      }
+      setEditingQuantity(prev => {
+        const newState = { ...prev };
+        delete newState[productId];
+        return newState;
+      });
+    }
   };
 
   const removeFromCart = (productId: string) => {
@@ -271,8 +339,8 @@ export function POSTerminal() {
 
   // Configurar scanner de código de barras
   useEffect(() => {
-    const handleBarcodeScan = (barcode: string) => {
-      const product = getProductByBarcode(barcode);
+    const handleBarcodeScan = async (barcode: string) => {
+      const product = await getProductByBarcode(barcode);
       if (product) {
         if (product.stock <= 0) {
           toast({
@@ -400,10 +468,13 @@ export function POSTerminal() {
       return;
     }
     
-    addToCart(product);
+    // Processar quantidade da busca atual
+    const { quantity } = parseQuantityAndBarcode(barcodeInput);
+    
+    addToCart(product, quantity);
     toast({
       title: 'Produto adicionado',
-      description: `${product.name} adicionado ao carrinho.`,
+      description: `${product.name} ${quantity > 1 ? `(${quantity}x)` : ''} adicionado ao carrinho.`,
     });
   };
 
@@ -470,7 +541,7 @@ export function POSTerminal() {
                 ref={inputRef}
                 value={barcodeInput}
                 onChange={(e) => handleInputChange(e.target.value)}
-                placeholder="Escaneie código de barras ou digite o nome do produto..."
+                placeholder="Escaneie código de barras, digite o nome do produto ou use multiplicação (ex: 5*789456123)..."
                 className="pl-10 h-14 text-lg"
                 autoFocus
               />
@@ -553,100 +624,137 @@ export function POSTerminal() {
         </div>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Carrinho - Agora na parte central */}
-        <div className="lg:col-span-2">
+      <div className="grid gap-6 lg:grid-cols-4">
+        {/* Carrinho - Agora ocupa 3 colunas */}
+        <div className="lg:col-span-3">
           <Card className="p-4">
-            <div className="mb-4 flex items-center gap-2 border-b pb-4">
-              <ShoppingCart className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-bold">Carrinho</h2>
+            <div className="mb-3 flex items-center gap-2 border-b pb-3">
+              <ShoppingCart className="h-4 w-4 text-primary" />
+              <h2 className="text-base font-bold">Carrinho</h2>
               <span className="ml-auto rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
                 {cart.length} itens
               </span>
             </div>
 
-            <div className="space-y-3 min-h-[300px] max-h-[400px] overflow-y-auto">
-              <AnimatePresence>
-                {cart.map((item) => (
-                  <motion.div
-                    key={item.product.id}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="flex items-center gap-3 rounded-lg border bg-secondary/30 p-4"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-lg">{item.product.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Código: {item.product.barcode}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        R$ {Number(item.product.price).toFixed(2)} 
-                        {item.isWeightBased ? ` por ${item.product.unit}` : ''} 
-                        × {item.isWeightBased ? item.quantity.toFixed(2) : item.quantity}
-                        {item.isWeightBased ? ` ${item.product.unit}` : ''}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-10 w-10"
-                        onClick={() => updateQuantity(item.product.id, -1)}
-                      >
-                        <Minus className="h-4 w-4" />
-                      </Button>
-                      <span className="w-12 text-center font-bold text-lg">
-                        {item.isWeightBased ? item.quantity.toFixed(2) : item.quantity}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-10 w-10"
-                        onClick={() => updateQuantity(item.product.id, 1)}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-10 w-10 text-destructive hover:text-destructive ml-2"
-                        onClick={() => removeFromCart(item.product.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <p className="w-24 text-right font-bold text-xl text-primary">
-                      R$ {item.subtotal.toFixed(2)}
-                    </p>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+            <div className="min-h-[300px] max-h-[500px] overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                <AnimatePresence>
+                  {cart.map((item) => (
+                    <motion.div
+                      key={item.product.id}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className="rounded-lg border bg-secondary/30 p-3 flex flex-col"
+                    >
+                      <div className="flex-1 mb-2">
+                        <p className="font-medium text-sm leading-tight mb-1 line-clamp-2">{item.product.name}</p>
+                        <div className="text-xs text-muted-foreground mb-1">
+                          <div>#{item.product.barcode}</div>
+                          <div>
+                            R$ {Number(item.product.price).toFixed(2)}
+                            {item.isWeightBased ? `/${item.product.unit}` : ''}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between gap-1 mb-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => updateQuantity(item.product.id, -1)}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        
+                        {editingQuantity[item.product.id] !== undefined ? (
+                          <Input
+                            type="number"
+                            value={editingQuantity[item.product.id]}
+                            onChange={(e) => handleQuantityEdit(item.product.id, e.target.value)}
+                            onBlur={() => confirmQuantityEdit(item.product.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                confirmQuantityEdit(item.product.id);
+                              }
+                              if (e.key === 'Escape') {
+                                setEditingQuantity(prev => {
+                                  const newState = { ...prev };
+                                  delete newState[item.product.id];
+                                  return newState;
+                                });
+                              }
+                            }}
+                            className="h-7 w-12 text-center text-xs p-1"
+                            step={item.isWeightBased ? "0.01" : "1"}
+                            min="0"
+                            autoFocus
+                          />
+                        ) : (
+                          <button
+                            onClick={() => setEditingQuantity(prev => ({
+                              ...prev,
+                              [item.product.id]: item.quantity.toString()
+                            }))}
+                            className="text-center font-bold text-sm px-1 hover:bg-gray-100 rounded min-w-[3rem]"
+                          >
+                            {item.isWeightBased ? item.quantity.toFixed(2) : item.quantity}
+                          </button>
+                        )}
+                        
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => updateQuantity(item.product.id, 1)}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => removeFromCart(item.product.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      
+                      <div className="text-center">
+                        <p className="font-bold text-base text-primary">
+                          R$ {item.subtotal.toFixed(2)}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
 
-              {cart.length === 0 && (
-                <div className="flex h-64 flex-col items-center justify-center text-muted-foreground">
-                  <ShoppingCart className="mb-4 h-16 w-16" />
-                  <p className="text-xl">Carrinho vazio</p>
-                  <p className="text-sm">Adicione produtos para começar a venda</p>
-                </div>
-              )}
+                {cart.length === 0 && (
+                  <div className="col-span-full flex h-48 flex-col items-center justify-center text-muted-foreground">
+                    <ShoppingCart className="mb-3 h-12 w-12" />
+                    <p className="text-lg">Carrinho vazio</p>
+                    <p className="text-sm">Adicione produtos para começar a venda</p>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Total e Botões de Pagamento */}
             {cart.length > 0 && (
-              <div className="mt-6 space-y-4 border-t pt-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-lg">
+              <div className="mt-4 space-y-3 border-t pt-3">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-base">
                     <span>Subtotal</span>
                     <span>R$ {total.toFixed(2)}</span>
                   </div>
                   {discountAmount > 0 && (
-                    <div className="flex items-center justify-between text-lg text-red-600">
+                    <div className="flex items-center justify-between text-base text-red-600">
                       <span>Desconto</span>
                       <span>-R$ {discountAmount.toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="flex items-center justify-between text-3xl font-bold border-t pt-2">
+                  <div className="flex items-center justify-between text-2xl font-bold border-t pt-2">
                     <span>Total</span>
                     <span className="text-primary">R$ {finalTotal.toFixed(2)}</span>
                   </div>
@@ -661,48 +769,52 @@ export function POSTerminal() {
           {cart.length > 0 && (
             <>
               {/* Seleção de Forma de Pagamento */}
-              <Card className="p-4">
-                <h3 className="mb-4 font-semibold">Forma de Pagamento</h3>
+              <Card className="p-3">
+                <h3 className="mb-3 font-semibold text-sm">Forma de Pagamento</h3>
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant={selectedPaymentMethod === 'cash' ? 'default' : 'outline'}
                     onClick={() => setSelectedPaymentMethod('cash')}
-                    className="flex-col gap-1 h-auto py-3"
+                    className="flex-col gap-1 h-auto py-2"
+                    size="sm"
                   >
-                    <Banknote className="h-5 w-5" />
+                    <Banknote className="h-4 w-4" />
                     <span className="text-xs">Dinheiro</span>
                   </Button>
                   <Button
                     variant={selectedPaymentMethod === 'credit' ? 'default' : 'outline'}
                     onClick={() => setSelectedPaymentMethod('credit')}
-                    className="flex-col gap-1 h-auto py-3"
+                    className="flex-col gap-1 h-auto py-2"
+                    size="sm"
                   >
-                    <CreditCard className="h-5 w-5" />
+                    <CreditCard className="h-4 w-4" />
                     <span className="text-xs">Crédito</span>
                   </Button>
                   <Button
                     variant={selectedPaymentMethod === 'debit' ? 'default' : 'outline'}
                     onClick={() => setSelectedPaymentMethod('debit')}
-                    className="flex-col gap-1 h-auto py-3"
+                    className="flex-col gap-1 h-auto py-2"
+                    size="sm"
                   >
-                    <CreditCard className="h-5 w-5" />
+                    <CreditCard className="h-4 w-4" />
                     <span className="text-xs">Débito</span>
                   </Button>
                   <Button
                     variant={selectedPaymentMethod === 'pix' ? 'default' : 'outline'}
                     onClick={() => setSelectedPaymentMethod('pix')}
-                    className="flex-col gap-1 h-auto py-3"
+                    className="flex-col gap-1 h-auto py-2"
+                    size="sm"
                   >
-                    <Smartphone className="h-5 w-5" />
+                    <Smartphone className="h-4 w-4" />
                     <span className="text-xs">PIX</span>
                   </Button>
                 </div>
               </Card>
 
               {/* Desconto */}
-              <Card className="p-4">
-                <h3 className="mb-4 font-semibold">Desconto</h3>
-                <div className="space-y-3">
+              <Card className="p-3">
+                <h3 className="mb-3 font-semibold text-sm">Desconto</h3>
+                <div className="space-y-2">
                   <div className="flex gap-2">
                     <Button
                       variant={discountType === 'percentage' ? 'default' : 'outline'}
@@ -727,9 +839,10 @@ export function POSTerminal() {
                     step={discountType === 'percentage' ? '1' : '0.01'}
                     min="0"
                     max={discountType === 'percentage' ? '100' : total.toString()}
+                    className="h-9"
                   />
                   {discountAmount > 0 && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       Desconto: R$ {discountAmount.toFixed(2)}
                     </p>
                   )}
@@ -738,11 +851,11 @@ export function POSTerminal() {
 
               {/* Valor Recebido e Troco (apenas para dinheiro) */}
               {selectedPaymentMethod === 'cash' && (
-                <Card className="p-4">
-                  <h3 className="mb-4 font-semibold">Pagamento em Dinheiro</h3>
-                  <div className="space-y-3">
+                <Card className="p-3">
+                  <h3 className="mb-3 font-semibold text-sm">Pagamento em Dinheiro</h3>
+                  <div className="space-y-2">
                     <div>
-                      <label className="text-sm font-medium">Valor Recebido</label>
+                      <label className="text-xs font-medium">Valor Recebido</label>
                       <Input
                         type="number"
                         placeholder="0.00"
@@ -750,19 +863,20 @@ export function POSTerminal() {
                         onChange={(e) => setReceivedAmount(e.target.value)}
                         step="0.01"
                         min="0"
+                        className="h-9"
                       />
                     </div>
                     {receivedValue > 0 && (
-                      <div className="space-y-2 p-3 bg-muted rounded-lg">
-                        <div className="flex justify-between">
+                      <div className="space-y-1 p-2 bg-muted rounded-lg">
+                        <div className="flex justify-between text-sm">
                           <span>Total:</span>
                           <span>R$ {finalTotal.toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between">
+                        <div className="flex justify-between text-sm">
                           <span>Recebido:</span>
                           <span>R$ {receivedValue.toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between font-bold text-lg border-t pt-2">
+                        <div className="flex justify-between font-bold text-base border-t pt-1">
                           <span>Troco:</span>
                           <span className={change >= 0 ? 'text-green-600' : 'text-red-600'}>
                             R$ {change.toFixed(2)}
@@ -778,7 +892,7 @@ export function POSTerminal() {
               <Button
                 onClick={handlePayment}
                 disabled={createSale.isPending || (selectedPaymentMethod === 'cash' && receivedValue < finalTotal)}
-                className="w-full h-14 text-lg font-bold"
+                className="w-full h-12 text-base font-bold"
                 size="lg"
               >
                 {createSale.isPending ? 'Processando...' : 'Finalizar Venda'}
@@ -787,10 +901,10 @@ export function POSTerminal() {
           )}
 
           {cart.length === 0 && (
-            <Card className="p-8">
+            <Card className="p-6">
               <div className="text-center text-muted-foreground">
-                <ShoppingCart className="mx-auto mb-4 h-12 w-12" />
-                <p>Adicione produtos ao carrinho para ver as opções de pagamento</p>
+                <ShoppingCart className="mx-auto mb-3 h-10 w-10" />
+                <p className="text-sm">Adicione produtos ao carrinho para ver as opções de pagamento</p>
               </div>
             </Card>
           )}
