@@ -74,6 +74,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Skip requests for hashed files - they change on each build
+  const url = new URL(event.request.url);
+  const pathname = url.pathname;
+  if (pathname.match(/\-[a-zA-Z0-9]{8,}\.(js|css)$/)) {
+    // For hashed files, try network first, no caching
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((cachedResponse) => {
@@ -88,16 +97,6 @@ self.addEventListener('fetch', (event) => {
           .then((response) => {
             // Don't cache non-successful responses
             if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-
-            // Don't cache dynamic files with hashes (they change on each build)
-            const url = new URL(event.request.url);
-            const pathname = url.pathname;
-            
-            // Skip caching files with hashes in their names
-            if (pathname.match(/\-[a-zA-Z0-9]{8,}\.(js|css)$/)) {
-              console.log('Skipping cache for hashed file:', pathname);
               return response;
             }
 
@@ -126,18 +125,36 @@ self.addEventListener('fetch', (event) => {
                 if (response) {
                   return response;
                 }
-                return new Response('Aplicativo offline - Verifique sua conexão', {
-                  status: 503,
-                  statusText: 'Service Unavailable',
+                // Return a simple offline page instead of 503
+                return new Response(`
+                  <!DOCTYPE html>
+                  <html>
+                    <head>
+                      <title>Mercadinho Mix - Offline</title>
+                      <meta charset="utf-8">
+                      <meta name="viewport" content="width=device-width, initial-scale=1">
+                      <style>
+                        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                        .offline-message { color: #666; }
+                      </style>
+                    </head>
+                    <body>
+                      <h1>Mercadinho Mix</h1>
+                      <div class="offline-message">
+                        <p>Aplicativo funcionando offline</p>
+                        <p>Algumas funcionalidades podem estar limitadas</p>
+                      </div>
+                    </body>
+                  </html>
+                `, {
+                  status: 200,
                   headers: { 'Content-Type': 'text/html' }
                 });
               });
             }
             
-            return new Response('Offline - Please check your connection', {
-              status: 503,
-              statusText: 'Service Unavailable'
-            });
+            // For other requests, just let them fail silently
+            throw error;
           });
       })
   );
