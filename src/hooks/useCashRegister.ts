@@ -126,7 +126,7 @@ export function useCashRegister() {
     mutationFn: async (data: CashRegisterInsert) => {
       // Check if there's already an open register
       const { data: existingOpen } = await supabase
-        .from('cash_registers' as any)
+        .from('cash_registers')
         .select('id')
         .eq('is_open', true)
         .limit(1);

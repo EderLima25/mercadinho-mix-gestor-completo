@@ -1,47 +1,56 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
-import { logPWAStatus, clearPWACache } from "./utils/pwaUtils";
+import { logPWAStatus, clearPWACache, registerServiceWorker, testServiceWorkerCommunication } from "./utils/pwaUtils";
+import { LocalCache } from "./utils/localCache";
 
 // Log PWA status for debugging
 logPWAStatus();
 
-// Add global function for debugging
+// Add global functions for debugging
 (window as any).clearPWACache = clearPWACache;
-console.log('Debug: Use clearPWACache() to clear all caches and reload');
+(window as any).testSW = testServiceWorkerCommunication;
+(window as any).clearLocalCache = async () => {
+  const cache = LocalCache.getInstance();
+  await cache.clearAllData();
+  console.log('Local cache cleared');
+};
+(window as any).checkLocalCache = async () => {
+  const cache = LocalCache.getInstance();
+  const products = await cache.getProducts();
+  const pendingSync = await cache.getPendingSyncItems();
+  const offlineSales = await cache.getOfflineSales();
+  
+  console.log('=== Local Cache Status ===');
+  console.log('Products:', products.length);
+  console.log('Pending sync items:', pendingSync.length);
+  console.log('Offline sales:', offlineSales.length);
+  console.log('========================');
+  
+  return { products, pendingSync, offlineSales };
+};
+
+console.log('Debug functions available:');
+console.log('- clearPWACache() - Clear all caches and reload');
+console.log('- testSW() - Test service worker communication');
+console.log('- clearLocalCache() - Clear IndexedDB cache');
+console.log('- checkLocalCache() - Check local cache status');
+console.log('- debugOfflineStatus() - Debug offline detection status');
 
 // Register service worker for offline functionality
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then((registration) => {
-        console.log('SW registered successfully:', registration);
-        
-        // Check for updates
-        registration.addEventListener('updatefound', () => {
-          console.log('New service worker found');
-          const newWorker = registration.installing;
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                console.log('New service worker installed, ready to update');
-                console.log('Run clearPWACache() to update to the latest version');
-              }
-            });
-          }
-        });
-      })
-      .catch((registrationError) => {
-        console.error('SW registration failed:', registrationError);
-      });
-  });
-
-  // Listen for service worker messages
-  navigator.serviceWorker.addEventListener('message', (event) => {
-    console.log('Message from service worker:', event.data);
-  });
-} else {
-  console.warn('Service workers are not supported in this browser');
-}
+window.addEventListener('load', async () => {
+  const registration = await registerServiceWorker();
+  
+  if (registration) {
+    console.log('Service Worker registered successfully');
+    
+    // Check for updates periodically
+    setInterval(() => {
+      registration.update();
+    }, 60000); // Check every minute
+  } else {
+    console.warn('Service Worker registration failed');
+  }
+});
 
 createRoot(document.getElementById("root")!).render(<App />);

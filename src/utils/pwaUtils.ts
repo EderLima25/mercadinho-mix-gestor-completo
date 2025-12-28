@@ -60,6 +60,69 @@ export const checkServiceWorkerStatus = async (): Promise<string> => {
   }
 };
 
+export const registerServiceWorker = async (): Promise<ServiceWorkerRegistration | null> => {
+  if (!('serviceWorker' in navigator)) {
+    console.warn('Service Worker not supported');
+    return null;
+  }
+
+  try {
+    console.log('Registering service worker...');
+    const registration = await navigator.serviceWorker.register('/sw.js', {
+      scope: '/',
+      updateViaCache: 'none' // Always check for updates
+    });
+
+    console.log('SW registered successfully:', registration);
+
+    // Handle updates
+    registration.addEventListener('updatefound', () => {
+      console.log('New service worker found');
+      const newWorker = registration.installing;
+      
+      if (newWorker) {
+        newWorker.addEventListener('statechange', () => {
+          console.log('SW state changed:', newWorker.state);
+          
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            console.log('New service worker installed, prompting for update');
+            // Optionally show update notification to user
+            if (confirm('Nova versão disponível. Atualizar agora?')) {
+              newWorker.postMessage({ type: 'SKIP_WAITING' });
+              window.location.reload();
+            }
+          }
+        });
+      }
+    });
+
+    // Listen for messages from service worker
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      console.log('Message from SW:', event.data);
+      
+      if (event.data.type === 'SW_ACTIVATED') {
+        console.log('Service Worker activated');
+      }
+      
+      if (event.data.type === 'PROCESS_OFFLINE_QUEUE') {
+        // Trigger offline queue processing
+        window.dispatchEvent(new CustomEvent('processOfflineQueue'));
+      }
+    });
+
+    // Handle controller change (when new SW takes over)
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      console.log('Service Worker controller changed');
+      window.location.reload();
+    });
+
+    return registration;
+  } catch (error) {
+    console.error('SW registration failed:', error);
+    return null;
+  }
+};
+
 export const logPWAStatus = async (): Promise<void> => {
   console.log('=== PWA Status ===');
   console.log('PWA Installed:', isPWAInstalled());
@@ -93,4 +156,27 @@ export const clearPWACache = async (): Promise<void> => {
       console.error('Error clearing cache:', error);
     }
   }
+};
+
+// Test service worker communication
+export const testServiceWorkerCommunication = async (): Promise<boolean> => {
+  if (!navigator.serviceWorker.controller) {
+    return false;
+  }
+
+  return new Promise((resolve) => {
+    const messageChannel = new MessageChannel();
+    
+    messageChannel.port1.onmessage = (event) => {
+      resolve(event.data.type === 'PONG');
+    };
+
+    navigator.serviceWorker.controller.postMessage(
+      { type: 'PING' }, 
+      [messageChannel.port2]
+    );
+
+    // Timeout after 5 seconds
+    setTimeout(() => resolve(false), 5000);
+  });
 };
