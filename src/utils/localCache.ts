@@ -71,24 +71,33 @@ export class LocalCache {
   async saveOfflineSale(sale: any): Promise<void> {
     if (!this.db) await this.init();
     
-    const transaction = this.db!.transaction(['sales', 'pendingSync'], 'readwrite');
-    const salesStore = transaction.objectStore('sales');
-    const pendingStore = transaction.objectStore('pendingSync');
-    
-    // Save sale locally
-    const saleWithTimestamp = {
-      ...sale,
-      timestamp: Date.now(),
-      synced: false
-    };
-    
-    await salesStore.add(saleWithTimestamp);
-    
-    // Add to pending sync queue
-    await pendingStore.add({
-      type: 'sale',
-      data: saleWithTimestamp,
-      timestamp: Date.now()
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['sales', 'pendingSync'], 'readwrite');
+      const salesStore = transaction.objectStore('sales');
+      const pendingStore = transaction.objectStore('pendingSync');
+      
+      // Save sale locally
+      const saleWithTimestamp = {
+        ...sale,
+        timestamp: Date.now(),
+        synced: false
+      };
+      
+      const saleRequest = salesStore.add(saleWithTimestamp);
+      
+      saleRequest.onsuccess = () => {
+        // Add to pending sync queue
+        const pendingRequest = pendingStore.add({
+          type: 'sale',
+          data: saleWithTimestamp,
+          timestamp: Date.now()
+        });
+        
+        pendingRequest.onsuccess = () => resolve();
+        pendingRequest.onerror = () => reject(pendingRequest.error);
+      };
+      
+      saleRequest.onerror = () => reject(saleRequest.error);
     });
   }
 

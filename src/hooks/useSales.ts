@@ -64,6 +64,7 @@ export function useSales() {
       if (error) throw error;
       return data as Sale[];
     },
+    enabled: isOnline, // Só executar quando online
   });
 
   // Buscar produtos mais vendidos
@@ -104,6 +105,7 @@ export function useSales() {
         .sort((a, b) => b.total_quantity - a.total_quantity)
         .slice(0, 8) as TopProduct[];
     },
+    enabled: isOnline, // Só executar quando online
   });
 
   const createSale = useMutation({
@@ -118,8 +120,12 @@ export function useSales() {
     }) => {
       if (!user) throw new Error('Usuário não autenticado');
 
+      console.log('Creating sale - isOnline:', isOnline);
+
       // Se estiver offline, salvar localmente
       if (!isOnline) {
+        console.log('Saving sale offline...');
+        
         const offlineSale = {
           id: `offline_${Date.now()}`,
           user_id: user.id,
@@ -129,19 +135,28 @@ export function useSales() {
           created_at: new Date().toISOString(),
         };
 
-        // Salvar no cache local
-        await localCache.saveOfflineSale(offlineSale);
-        
-        // Adicionar à fila de sincronização
-        addToOfflineQueue({
-          type: 'sale',
-          data: offlineSale
-        });
+        try {
+          // Salvar no cache local
+          await localCache.saveOfflineSale(offlineSale);
+          console.log('Sale saved to local cache');
+          
+          // Adicionar à fila de sincronização
+          addToOfflineQueue({
+            type: 'sale',
+            data: offlineSale
+          });
+          console.log('Sale added to offline queue');
 
-        // Retornar imediatamente para resolver a mutation
-        return offlineSale;
+          // Retornar imediatamente para resolver a mutation
+          return offlineSale;
+        } catch (error) {
+          console.error('Error saving offline sale:', error);
+          throw new Error('Erro ao salvar venda offline: ' + (error as Error).message);
+        }
       }
 
+      console.log('Creating sale online...');
+      
       // Create sale online
       const { data: sale, error: saleError } = await supabase
         .from('sales')
@@ -188,10 +203,16 @@ export function useSales() {
 
       return sale;
     },
+    retry: false, // Não tentar novamente em caso de erro
     onSuccess: (sale) => {
-      queryClient.invalidateQueries({ queryKey: ['sales'] });
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['top-products'] });
+      console.log('Sale created successfully:', sale);
+      
+      // Só invalidar queries quando online
+      if (isOnline) {
+        queryClient.invalidateQueries({ queryKey: ['sales'] });
+        queryClient.invalidateQueries({ queryKey: ['products'] });
+        queryClient.invalidateQueries({ queryKey: ['top-products'] });
+      }
       
       if (isOnline) {
         toast({ title: 'Venda finalizada!' });
@@ -203,6 +224,7 @@ export function useSales() {
       }
     },
     onError: (error: Error) => {
+      console.error('Error creating sale:', error);
       toast({ 
         title: 'Erro ao finalizar venda', 
         description: error.message,

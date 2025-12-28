@@ -378,48 +378,64 @@ export function POSTerminal() {
   const handlePayment = async () => {
     if (cart.length === 0) return;
 
-    // Validações para pagamento em dinheiro
-    if (selectedPaymentMethod === 'cash') {
-      if (receivedValue < finalTotal) {
-        toast({
-          title: 'Valor insuficiente',
-          description: `Valor recebido (R$ ${receivedValue.toFixed(2)}) é menor que o total (R$ ${finalTotal.toFixed(2)})`,
-          variant: 'destructive',
-        });
-        return;
+    try {
+      // Validações para pagamento em dinheiro
+      if (selectedPaymentMethod === 'cash') {
+        if (receivedValue < finalTotal) {
+          toast({
+            title: 'Valor insuficiente',
+            description: `Valor recebido (R$ ${receivedValue.toFixed(2)}) é menor que o total (R$ ${finalTotal.toFixed(2)})`,
+            variant: 'destructive',
+          });
+          return;
+        }
       }
-    }
 
-    // Verificar estoque antes de finalizar venda
-    for (const item of cart) {
-      if (item.quantity > item.product.stock) {
-        toast({
-          title: 'Estoque insuficiente',
-          description: `${item.product.name}: disponível ${item.product.stock} ${item.product.unit}, solicitado ${item.quantity} ${item.product.unit}`,
-          variant: 'destructive',
-        });
-        return;
+      // Verificar estoque antes de finalizar venda
+      for (const item of cart) {
+        if (item.quantity > item.product.stock) {
+          toast({
+            title: 'Estoque insuficiente',
+            description: `${item.product.name}: disponível ${item.product.stock} ${item.product.unit}, solicitado ${item.quantity} ${item.product.unit}`,
+            variant: 'destructive',
+          });
+          return;
+        }
       }
+
+      const items = cart.map(item => ({
+        product_id: item.product.id,
+        quantity: item.quantity,
+        unit_price: Number(item.product.price),
+        subtotal: item.subtotal,
+      }));
+
+      console.log('Calling createSale.mutateAsync...');
+      
+      await createSale.mutateAsync({
+        items,
+        total: finalTotal,
+        paymentMethod: selectedPaymentMethod,
+      });
+
+      console.log('Sale completed, clearing cart...');
+
+      // Limpar formulário após venda
+      setCart([]);
+      setDiscount(0);
+      setReceivedAmount('');
+      
+      // Imprimir cupom
+      printReceipt();
+      
+    } catch (error) {
+      console.error('Error in handlePayment:', error);
+      toast({
+        title: 'Erro ao processar pagamento',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
     }
-
-    const items = cart.map(item => ({
-      product_id: item.product.id,
-      quantity: item.quantity,
-      unit_price: Number(item.product.price),
-      subtotal: item.subtotal,
-    }));
-
-    await createSale.mutateAsync({
-      items,
-      total: finalTotal,
-      paymentMethod: selectedPaymentMethod,
-    });
-
-    // Limpar formulário após venda
-    setCart([]);
-    setDiscount(0);
-    setReceivedAmount('');
-    printReceipt();
   };
 
   const printReceipt = async () => {
