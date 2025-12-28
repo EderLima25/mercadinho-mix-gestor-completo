@@ -70,3 +70,27 @@ export const logPWAStatus = async (): Promise<void> => {
   console.log('Display Mode:', window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser');
   console.log('==================');
 };
+
+export const clearPWACache = async (): Promise<void> => {
+  if ('caches' in window) {
+    try {
+      const cacheNames = await caches.keys();
+      await Promise.all(
+        cacheNames.map(cacheName => caches.delete(cacheName))
+      );
+      console.log('All caches cleared');
+      
+      // Send message to service worker to refresh
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'REFRESH_CACHE'
+        });
+      }
+      
+      // Reload the page to get fresh content
+      window.location.reload();
+    } catch (error) {
+      console.error('Error clearing cache:', error);
+    }
+  }
+};

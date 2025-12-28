@@ -1,10 +1,14 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
-import { logPWAStatus } from "./utils/pwaUtils";
+import { logPWAStatus, clearPWACache } from "./utils/pwaUtils";
 
 // Log PWA status for debugging
 logPWAStatus();
+
+// Add global function for debugging
+(window as any).clearPWACache = clearPWACache;
+console.log('Debug: Use clearPWACache() to clear all caches and reload');
 
 // Register service worker for offline functionality
 if ('serviceWorker' in navigator) {
@@ -21,7 +25,7 @@ if ('serviceWorker' in navigator) {
             newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                 console.log('New service worker installed, ready to update');
-                // You could show a notification to the user here
+                console.log('Run clearPWACache() to update to the latest version');
               }
             });
           }
