@@ -2,7 +2,14 @@ import { useState, useEffect } from 'react';
 
 export function useOffline() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [offlineQueue, setOfflineQueue] = useState<any[]>([]);
+  const [offlineQueue, setOfflineQueue] = useState<any[]>(() => {
+    // Initialize with data from localStorage
+    try {
+      return JSON.parse(localStorage.getItem('offlineQueue') || '[]');
+    } catch {
+      return [];
+    }
+  });
 
   useEffect(() => {
     const handleOnline = () => {
@@ -25,11 +32,17 @@ export function useOffline() {
   }, []);
 
   const addToOfflineQueue = (action: any) => {
-    setOfflineQueue(prev => [...prev, { ...action, timestamp: Date.now() }]);
+    const newAction = { ...action, timestamp: Date.now() };
+    setOfflineQueue(prev => [...prev, newAction]);
+    
     // Save to localStorage for persistence
-    const queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
-    queue.push({ ...action, timestamp: Date.now() });
-    localStorage.setItem('offlineQueue', JSON.stringify(queue));
+    try {
+      const queue = JSON.parse(localStorage.getItem('offlineQueue') || '[]');
+      queue.push(newAction);
+      localStorage.setItem('offlineQueue', JSON.stringify(queue));
+    } catch (error) {
+      console.error('Error saving to offline queue:', error);
+    }
   };
 
   const processOfflineQueue = async () => {

@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from './useAuth';
+import { useOffline } from './useOffline';
+import { LocalCache } from '@/utils/localCache';
 
 export interface SaleItem {
   product_id: string;
@@ -47,7 +49,9 @@ export interface TopProduct {
 export function useSales() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { isOnline, addToOfflineQueue } = useOffline();
   const queryClient = useQueryClient();
+  const localCache = LocalCache.getInstance();
 
   const { data: sales = [], isLoading, error } = useQuery({
     queryKey: ['sales'],
@@ -114,7 +118,31 @@ export function useSales() {
     }) => {
       if (!user) throw new Error('Usuário não autenticado');
 
-      // Create sale
+      // Se estiver offline, salvar localmente
+      if (!isOnline) {
+        const offlineSale = {
+          id: `offline_${Date.now()}`,
+          user_id: user.id,
+          total,
+          payment_method: paymentMethod,
+          items,
+          created_at: new Date().toISOString(),
+        };
+
+        // Salvar no cache local
+        await localCache.saveOfflineSale(offlineSale);
+        
+        // Adicionar à fila de sincronização
+        addToOfflineQueue({
+          type: 'sale',
+          data: offlineSale
+        });
+
+        // Retornar imediatamente para resolver a mutation
+        return offlineSale;
+      }
+
+      // Create sale online
       const { data: sale, error: saleError } = await supabase
         .from('sales')
         .insert({
@@ -160,11 +188,19 @@ export function useSales() {
 
       return sale;
     },
-    onSuccess: () => {
+    onSuccess: (sale) => {
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['top-products'] });
-      toast({ title: 'Venda finalizada!' });
+      
+      if (isOnline) {
+        toast({ title: 'Venda finalizada!' });
+      } else {
+        toast({ 
+          title: 'Venda salva offline!',
+          description: 'A venda será sincronizada quando a conexão for restabelecida.'
+        });
+      }
     },
     onError: (error: Error) => {
       toast({ 

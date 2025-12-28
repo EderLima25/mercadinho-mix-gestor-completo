@@ -28,7 +28,7 @@ export function OfflineStatus() {
   return (
     <>
       {/* Persistent offline indicator */}
-      {!isOnline && (
+      {!isOnline && !showStatus && (
         <div className="fixed top-20 right-4 z-50 max-w-sm lg:top-20 lg:right-4">
           <Alert className="bg-yellow-50 border-yellow-200 shadow-lg">
             <CloudOff className="h-4 w-4 text-yellow-600" />
@@ -46,7 +46,7 @@ export function OfflineStatus() {
             initial={{ opacity: 0, y: -50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -50 }}
-            className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 lg:top-16"
+            className="fixed top-32 left-1/2 transform -translate-x-1/2 z-50 lg:top-28"
           >
             <Alert className={`shadow-lg ${
               isOnline 
