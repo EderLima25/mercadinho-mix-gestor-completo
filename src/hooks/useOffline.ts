@@ -21,7 +21,7 @@ export function useOffline() {
   });
   const [isSyncing, setIsSyncing] = useState(false);
 
-  console.log('useOffline - isOnline:', isOnline, 'navigator.onLine:', navigator.onLine);
+  // Removed excessive logging - only log on state changes
 
   // Improved network detection
   const checkNetworkStatus = useCallback(async () => {
@@ -72,7 +72,7 @@ export function useOffline() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Periodic connectivity check
+    // Periodic connectivity check - reduced frequency and logging
     const intervalId = setInterval(async () => {
       const actualStatus = await checkNetworkStatus();
       const navigatorStatus = navigator.onLine;
@@ -87,7 +87,7 @@ export function useOffline() {
           setTimeout(() => processOfflineQueue(), 1000);
         }
       }
-    }, 5000); // Check every 5 seconds for more responsive detection
+    }, 10000); // Reduced frequency to every 10 seconds
 
     return () => {
       window.removeEventListener('online', handleOnline);

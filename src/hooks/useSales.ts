@@ -162,6 +162,9 @@ export function useSales() {
           await localCache.saveProducts(updatedProducts);
           console.log('Stock updated locally');
 
+          // Invalidar cache de produtos para refletir mudanças no estoque
+          queryClient.invalidateQueries({ queryKey: ['products'] });
+
           // Retornar imediatamente para resolver a mutation
           return offlineSale;
         } catch (error) {

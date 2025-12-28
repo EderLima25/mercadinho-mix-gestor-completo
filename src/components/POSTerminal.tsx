@@ -412,7 +412,7 @@ export function POSTerminal() {
         subtotal: item.subtotal,
       }));
 
-      console.log('Calling createSale.mutateAsync...');
+      console.log('Calling createSale.mutate...');
       
       // Usar mutate ao invés de mutateAsync para evitar problemas com promises
       createSale.mutate({
@@ -420,8 +420,8 @@ export function POSTerminal() {
         total: finalTotal,
         paymentMethod: selectedPaymentMethod,
       }, {
-        onSuccess: () => {
-          console.log('Sale completed, clearing cart...');
+        onSuccess: (sale) => {
+          console.log('Sale completed successfully:', sale);
           // Limpar formulário após venda
           setCart([]);
           setDiscount(0);
@@ -432,6 +432,11 @@ export function POSTerminal() {
         },
         onError: (error) => {
           console.error('Error in mutation:', error);
+          toast({
+            title: 'Erro ao processar venda',
+            description: error.message,
+            variant: 'destructive',
+          });
         }
       });
       
