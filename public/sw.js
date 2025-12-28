@@ -1,5 +1,5 @@
-const CACHE_NAME = 'mercadinho-mix-v4';
-const STATIC_CACHE = 'mercadinho-static-v4';
+const CACHE_NAME = 'mercadinho-mix-v5';
+const STATIC_CACHE = 'mercadinho-static-v5';
 
 // Only cache essential static files that don't change
 const staticUrlsToCache = [
@@ -16,10 +16,21 @@ self.addEventListener('install', (event) => {
     caches.open(STATIC_CACHE)
       .then((cache) => {
         console.log('Caching static resources');
-        return cache.addAll(staticUrlsToCache);
+        // Cache resources individually to handle failures gracefully
+        return Promise.allSettled(
+          staticUrlsToCache.map(url => 
+            cache.add(url).catch(error => {
+              console.warn(`Failed to cache ${url}:`, error.message);
+              return null;
+            })
+          )
+        );
+      })
+      .then(() => {
+        console.log('Static resources cached successfully');
       })
       .catch((error) => {
-        console.error('Cache failed:', error);
+        console.error('Cache installation failed:', error);
       })
   );
   // Force the waiting service worker to become the active service worker
@@ -74,12 +85,26 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Skip requests for hashed files - they change on each build
   const url = new URL(event.request.url);
   const pathname = url.pathname;
+
+  // Skip requests for hashed files - they change on each build
   if (pathname.match(/\-[a-zA-Z0-9]{8,}\.(js|css)$/)) {
-    // For hashed files, try network first, no caching
-    event.respondWith(fetch(event.request));
+    // For hashed files, try network first, no caching, but handle errors gracefully
+    event.respondWith(
+      fetch(event.request).catch((error) => {
+        console.log('Hashed file fetch failed:', pathname, error.message);
+        // Return empty response for CSS files to prevent blocking
+        if (pathname.endsWith('.css')) {
+          return new Response('/* CSS file not available offline */', {
+            status: 200,
+            headers: { 'Content-Type': 'text/css' }
+          });
+        }
+        // For JS files, let them fail naturally
+        throw error;
+      })
+    );
     return;
   }
 
@@ -111,13 +136,16 @@ self.addEventListener('fetch', (event) => {
               caches.open(CACHE_NAME)
                 .then((cache) => {
                   cache.put(event.request, responseToCache);
+                })
+                .catch((cacheError) => {
+                  console.log('Cache put failed:', cacheError);
                 });
             }
 
             return response;
           })
           .catch((error) => {
-            console.log('Fetch failed, checking cache:', error);
+            console.log('Fetch failed for:', pathname, error.message);
             
             // For navigation requests, try to return the cached index page
             if (event.request.mode === 'navigate') {
@@ -125,7 +153,7 @@ self.addEventListener('fetch', (event) => {
                 if (response) {
                   return response;
                 }
-                // Return a simple offline page instead of 503
+                // Return a simple offline page
                 return new Response(`
                   <!DOCTYPE html>
                   <html>
@@ -153,8 +181,19 @@ self.addEventListener('fetch', (event) => {
               });
             }
             
-            // For other requests, just let them fail silently
-            throw error;
+            // For CSS files, return empty CSS to prevent blocking
+            if (pathname.endsWith('.css')) {
+              return new Response('/* CSS file not available offline */', {
+                status: 200,
+                headers: { 'Content-Type': 'text/css' }
+              });
+            }
+            
+            // For other requests, let them fail gracefully
+            return new Response('Resource not available offline', {
+              status: 404,
+              statusText: 'Not Found'
+            });
           });
       })
   );
