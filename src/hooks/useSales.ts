@@ -2,8 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from './useAuth';
-import { useOffline } from './useOffline';
 import { LocalCache } from '@/utils/localCache';
+import { useState, useEffect } from 'react';
 
 export interface SaleItem {
   product_id: string;
@@ -49,9 +49,24 @@ export interface TopProduct {
 export function useSales() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { isOnline, addToOfflineQueue } = useOffline();
   const queryClient = useQueryClient();
   const localCache = LocalCache.getInstance();
+  
+  // Estado de conexão local ao hook
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const { data: sales = [], isLoading, error } = useQuery({
     queryKey: ['sales'],
@@ -64,7 +79,7 @@ export function useSales() {
       if (error) throw error;
       return data as Sale[];
     },
-    enabled: isOnline, // Só executar quando online
+    enabled: isOnline,
   });
 
   // Buscar produtos mais vendidos
@@ -105,7 +120,7 @@ export function useSales() {
         .sort((a, b) => b.total_quantity - a.total_quantity)
         .slice(0, 8) as TopProduct[];
     },
-    enabled: isOnline, // Só executar quando online
+    enabled: isOnline,
   });
 
   const createSale = useMutation({
@@ -118,45 +133,41 @@ export function useSales() {
       total: number; 
       paymentMethod: string;
     }) => {
-      if (!user) throw new Error('Usuário não autenticado');
+      // Verificar conexão no momento da chamada
+      const currentlyOnline = navigator.onLine;
+      
+      console.log('Creating sale - navigator.onLine:', currentlyOnline);
 
-      console.log('Creating sale - isOnline:', isOnline);
+      // Se não houver usuário autenticado, usar sessão local para vendas offline
+      const userId = user?.id || 'local-session';
 
-      // Se estiver offline, salvar localmente
-      if (!isOnline) {
+      // Se estiver offline, salvar localmente e retornar imediatamente
+      if (!currentlyOnline) {
         console.log('Saving sale offline...');
         
         const offlineSale = {
-          id: `offline_${Date.now()}`,
-          user_id: user.id,
+          id: `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          user_id: userId,
           total,
           payment_method: paymentMethod,
           items,
           created_at: new Date().toISOString(),
+          synced: false,
         };
 
-        try {
-          // Salvar no localStorage como fallback mais simples
-          const existingOfflineSales = JSON.parse(localStorage.getItem('offlineSales') || '[]');
-          existingOfflineSales.push(offlineSale);
-          localStorage.setItem('offlineSales', JSON.stringify(existingOfflineSales));
-          console.log('Sale saved to localStorage');
-          
-          // Adicionar à fila de sincronização
-          addToOfflineQueue({
-            type: 'sale',
-            data: offlineSale
-          });
-          console.log('Sale added to offline queue');
+        // Salvar no localStorage
+        const existingOfflineSales = JSON.parse(localStorage.getItem('offlineSales') || '[]');
+        existingOfflineSales.push(offlineSale);
+        localStorage.setItem('offlineSales', JSON.stringify(existingOfflineSales));
+        console.log('Sale saved to localStorage:', offlineSale.id);
 
-          // Retornar imediatamente para resolver a mutation
-          return offlineSale;
-        } catch (error) {
-          console.error('Error saving offline sale:', error);
-          // Mesmo se falhar ao salvar, vamos retornar sucesso para não travar a UI
-          return offlineSale;
-        }
+        // Atualizar estoque local
+        updateLocalStock(items);
+
+        return offlineSale;
       }
+
+      if (!user) throw new Error('Usuário não autenticado');
 
       console.log('Creating sale online...');
       
@@ -206,18 +217,15 @@ export function useSales() {
 
       return sale;
     },
-    retry: false, // Não tentar novamente em caso de erro
+    retry: false,
     onSuccess: (sale) => {
-      console.log('Sale created successfully:', sale);
+      const currentlyOnline = navigator.onLine;
+      console.log('Sale created successfully:', sale?.id);
       
-      // Só invalidar queries quando online
-      if (isOnline) {
+      if (currentlyOnline) {
         queryClient.invalidateQueries({ queryKey: ['sales'] });
         queryClient.invalidateQueries({ queryKey: ['products'] });
         queryClient.invalidateQueries({ queryKey: ['top-products'] });
-      }
-      
-      if (isOnline) {
         toast({ title: 'Venda finalizada!' });
       } else {
         toast({ 
@@ -236,6 +244,120 @@ export function useSales() {
     },
   });
 
+  // Função para atualizar estoque local quando offline
+  const updateLocalStock = (items: SaleItem[]) => {
+    try {
+      const cachedProducts = JSON.parse(localStorage.getItem('cachedProducts') || '[]');
+      
+      items.forEach(item => {
+        const productIndex = cachedProducts.findIndex((p: any) => p.id === item.product_id);
+        if (productIndex !== -1) {
+          cachedProducts[productIndex].stock = Math.max(0, cachedProducts[productIndex].stock - item.quantity);
+        }
+      });
+      
+      localStorage.setItem('cachedProducts', JSON.stringify(cachedProducts));
+    } catch (error) {
+      console.error('Error updating local stock:', error);
+    }
+  };
+
+  // Função para sincronizar vendas offline quando voltar online
+  const syncOfflineSales = async () => {
+    if (!navigator.onLine || !user) return;
+
+    const offlineSales = JSON.parse(localStorage.getItem('offlineSales') || '[]');
+    
+    if (offlineSales.length === 0) return;
+
+    console.log(`Syncing ${offlineSales.length} offline sales...`);
+    
+    const failedSales: any[] = [];
+    
+    for (const offlineSale of offlineSales) {
+      if (offlineSale.synced) continue;
+      
+      try {
+        // Create sale online
+        const { data: sale, error: saleError } = await supabase
+          .from('sales')
+          .insert({
+            user_id: user.id,
+            total: offlineSale.total,
+            payment_method: offlineSale.payment_method,
+          })
+          .select()
+          .single();
+        
+        if (saleError) {
+          failedSales.push(offlineSale);
+          continue;
+        }
+
+        // Create sale items
+        const saleItems = offlineSale.items.map((item: SaleItem) => ({
+          sale_id: sale.id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          subtotal: item.subtotal,
+        }));
+
+        await supabase.from('sale_items').insert(saleItems);
+
+        // Update stock (já foi atualizado localmente, mas precisamos sincronizar)
+        for (const item of offlineSale.items) {
+          const { data: product } = await supabase
+            .from('products')
+            .select('stock')
+            .eq('id', item.product_id)
+            .single();
+          
+          if (product) {
+            await supabase
+              .from('products')
+              .update({ stock: Math.max(0, product.stock - item.quantity) })
+              .eq('id', item.product_id);
+          }
+        }
+        
+        console.log(`Synced offline sale: ${offlineSale.id}`);
+      } catch (error) {
+        console.error('Error syncing offline sale:', error);
+        failedSales.push(offlineSale);
+      }
+    }
+
+    // Atualizar localStorage com apenas as vendas que falharam
+    localStorage.setItem('offlineSales', JSON.stringify(failedSales));
+
+    if (offlineSales.length > failedSales.length) {
+      const syncedCount = offlineSales.length - failedSales.length;
+      toast({
+        title: 'Vendas sincronizadas!',
+        description: `${syncedCount} venda(s) sincronizada(s) com sucesso.`,
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    }
+
+    if (failedSales.length > 0) {
+      toast({
+        title: 'Algumas vendas não sincronizaram',
+        description: `${failedSales.length} venda(s) ainda pendente(s).`,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Sincronizar quando voltar online
+  useEffect(() => {
+    if (isOnline && user) {
+      syncOfflineSales();
+    }
+  }, [isOnline, user]);
+
   const todaySales = sales.filter(s => {
     const saleDate = new Date(s.created_at);
     const today = new Date();
@@ -243,6 +365,9 @@ export function useSales() {
   });
 
   const todayRevenue = todaySales.reduce((sum, s) => sum + Number(s.total), 0);
+
+  // Contar vendas offline pendentes
+  const pendingOfflineSales = JSON.parse(localStorage.getItem('offlineSales') || '[]').length;
 
   return {
     sales,
@@ -252,5 +377,8 @@ export function useSales() {
     isLoading,
     error,
     createSale,
+    syncOfflineSales,
+    pendingOfflineSales,
+    isOnline,
   };
 }
