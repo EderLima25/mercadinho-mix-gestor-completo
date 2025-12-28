@@ -30,6 +30,32 @@ logPWAStatus();
   return { products, pendingSync, offlineSales };
 };
 
+(window as any).debugOfflineStatus = async () => {
+  const cache = LocalCache.getInstance();
+  const products = await cache.getProducts();
+  const pendingSync = await cache.getPendingSyncItems();
+  
+  console.log('=== Offline Debug Status ===');
+  console.log('Navigator online:', navigator.onLine);
+  console.log('Cached products:', products.length);
+  console.log('Pending sync items:', pendingSync.length);
+  console.log('Service Worker status:', await (window as any).testSW());
+  
+  // Test cache functionality
+  if ('caches' in window) {
+    const cacheNames = await caches.keys();
+    console.log('Available caches:', cacheNames);
+    
+    for (const cacheName of cacheNames) {
+      const cache = await caches.open(cacheName);
+      const keys = await cache.keys();
+      console.log(`Cache ${cacheName}:`, keys.length, 'items');
+    }
+  }
+  
+  console.log('==========================');
+};
+
 console.log('Debug functions available:');
 console.log('- clearPWACache() - Clear all caches and reload');
 console.log('- testSW() - Test service worker communication');

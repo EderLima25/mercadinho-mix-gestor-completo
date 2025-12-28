@@ -20,6 +20,7 @@ export function useOffline() {
     }
   });
   const [isSyncing, setIsSyncing] = useState(false);
+  const [lastLoggedStatus, setLastLoggedStatus] = useState<boolean | null>(null);
 
   // Removed excessive logging - only log on state changes
 
@@ -51,7 +52,11 @@ export function useOffline() {
 
   useEffect(() => {
     const handleOnline = async () => {
-      console.log('Network status changed: ONLINE');
+      // Only log if this is a new status change
+      if (lastLoggedStatus !== true) {
+        console.log('Network status changed: ONLINE');
+        setLastLoggedStatus(true);
+      }
       // Double-check with actual network request
       const actuallyOnline = await checkNetworkStatus();
       if (actuallyOnline) {
@@ -62,7 +67,11 @@ export function useOffline() {
     };
 
     const handleOffline = () => {
-      console.log('Network status changed: OFFLINE');
+      // Only log if this is a new status change
+      if (lastLoggedStatus !== false) {
+        console.log('Network status changed: OFFLINE');
+        setLastLoggedStatus(false);
+      }
       setIsOnline(false);
     };
 
@@ -82,24 +91,26 @@ export function useOffline() {
       
       if (finalStatus !== isOnline) {
         // Only log when there's an actual change, not repeated states
-        if (finalStatus) {
+        if (finalStatus && lastLoggedStatus !== true) {
           console.log('Network restored: going online');
-        } else {
+          setLastLoggedStatus(true);
+        } else if (!finalStatus && lastLoggedStatus !== false) {
           console.log('Network lost: going offline');
+          setLastLoggedStatus(false);
         }
         setIsOnline(finalStatus);
         if (finalStatus && offlineQueue.length > 0) {
           setTimeout(() => processOfflineQueue(), 1000);
         }
       }
-    }, 15000); // Increased to 15 seconds to reduce frequency even more
+    }, 20000); // Increased to 20 seconds to reduce frequency even more
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       clearInterval(intervalId);
     };
-  }, [checkNetworkStatus, isOnline, offlineQueue.length]);
+  }, [checkNetworkStatus, isOnline, offlineQueue.length, lastLoggedStatus]);
 
   const addToOfflineQueue = useCallback((action: Omit<OfflineAction, 'id' | 'timestamp'>) => {
     const newAction: OfflineAction = { 

@@ -1,5 +1,5 @@
-const CACHE_NAME = 'mercadinho-mix-v5';
-const STATIC_CACHE = 'mercadinho-static-v5';
+const CACHE_NAME = 'mercadinho-mix-v6';
+const STATIC_CACHE = 'mercadinho-static-v6';
 
 // Only cache essential static files that don't change
 const staticUrlsToCache = [
@@ -13,17 +13,28 @@ const staticUrlsToCache = [
 self.addEventListener('install', (event) => {
   console.log('Service Worker installing...');
   event.waitUntil(
-    caches.open(STATIC_CACHE)
+    Promise.resolve()
+      .then(() => {
+        console.log('Service Worker installation starting');
+        return caches.open(STATIC_CACHE);
+      })
       .then((cache) => {
         console.log('Caching static resources');
         // Cache resources individually to handle failures gracefully
         return Promise.allSettled(
-          staticUrlsToCache.map(url => 
-            cache.add(url).catch(error => {
-              console.warn(`Failed to cache ${url}:`, error.message);
-              return null;
-            })
-          )
+          staticUrlsToCache.map(url => {
+            return fetch(url)
+              .then(response => {
+                if (response.ok) {
+                  return cache.put(url, response);
+                }
+                throw new Error(`Failed to fetch ${url}: ${response.status}`);
+              })
+              .catch(error => {
+                console.warn(`Failed to cache ${url}:`, error.message);
+                return null;
+              });
+          })
         );
       })
       .then(() => {
@@ -31,6 +42,7 @@ self.addEventListener('install', (event) => {
       })
       .catch((error) => {
         console.error('Cache installation failed:', error);
+        // Don't fail the installation even if caching fails
       })
   );
   // Force the waiting service worker to become the active service worker
@@ -92,18 +104,33 @@ self.addEventListener('fetch', (event) => {
   if (pathname.match(/\-[a-zA-Z0-9]{8,}\.(js|css)$/)) {
     // For hashed files, try network first, no caching, but handle errors gracefully
     event.respondWith(
-      fetch(event.request).catch((error) => {
-        console.log('Hashed file fetch failed:', pathname, error.message);
-        // Return empty response for CSS files to prevent blocking
-        if (pathname.endsWith('.css')) {
-          return new Response('/* CSS file not available offline */', {
-            status: 200,
-            headers: { 'Content-Type': 'text/css' }
-          });
-        }
-        // For JS files, let them fail naturally
-        throw error;
-      })
+      fetch(event.request)
+        .then(response => {
+          // Return successful responses as-is
+          if (response.ok) {
+            return response;
+          }
+          throw new Error(`HTTP ${response.status}`);
+        })
+        .catch((error) => {
+          console.log('Hashed file fetch failed:', pathname, error.message);
+          // Return empty response for CSS files to prevent blocking
+          if (pathname.endsWith('.css')) {
+            return new Response('/* CSS file not available offline */', {
+              status: 200,
+              headers: { 'Content-Type': 'text/css' }
+            });
+          }
+          // For JS files, return empty script
+          if (pathname.endsWith('.js')) {
+            return new Response('// JS file not available offline', {
+              status: 200,
+              headers: { 'Content-Type': 'application/javascript' }
+            });
+          }
+          // For other files, let them fail
+          throw error;
+        })
     );
     return;
   }
@@ -186,6 +213,14 @@ self.addEventListener('fetch', (event) => {
               return new Response('/* CSS file not available offline */', {
                 status: 200,
                 headers: { 'Content-Type': 'text/css' }
+              });
+            }
+            
+            // For JS files, return empty script
+            if (pathname.endsWith('.js')) {
+              return new Response('// JS file not available offline', {
+                status: 200,
+                headers: { 'Content-Type': 'application/javascript' }
               });
             }
             
