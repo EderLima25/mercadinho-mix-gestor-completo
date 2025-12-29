@@ -10,6 +10,8 @@ import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { useOffline } from "@/hooks/useOffline";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import Install from "./pages/Install";
+import OfflineSales from "./pages/OfflineSales";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,6 +44,8 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/install" element={<Install />} />
+          <Route path="/offline-sales" element={<OfflineSales />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
