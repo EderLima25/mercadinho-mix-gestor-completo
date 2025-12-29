@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Store, 
@@ -13,9 +14,11 @@ import {
   FileText,
   Users,
   Building2,
-  DollarSign
+  DollarSign,
+  CloudOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 type View = 'dashboard' | 'pos' | 'products' | 'inventory' | 'import' | 'reports' | 'users' | 'settings' | 'suppliers' | 'cash';
@@ -24,6 +27,8 @@ interface SidebarProps {
   currentView: View;
   onViewChange: (view: View) => void;
 }
+
+const OFFLINE_SALES_KEY = 'mercadinho-offline-sales';
 
 const menuItems = [
   { id: 'dashboard' as View, label: 'Dashboard', icon: BarChart3 },
@@ -39,8 +44,26 @@ const menuItems = [
 ];
 
 export function Sidebar({ currentView, onViewChange }: SidebarProps) {
+  const navigate = useNavigate();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [pendingOfflineSales, setPendingOfflineSales] = useState(0);
+
+  // Atualizar contagem de vendas offline
+  useEffect(() => {
+    const updateCount = () => {
+      try {
+        const sales = JSON.parse(localStorage.getItem(OFFLINE_SALES_KEY) || '[]');
+        setPendingOfflineSales(sales.length);
+      } catch {
+        setPendingOfflineSales(0);
+      }
+    };
+
+    updateCount();
+    const interval = setInterval(updateCount, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <>
@@ -127,6 +150,27 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
               </motion.button>
             );
           })}
+
+          {/* Vendas Offline */}
+          {pendingOfflineSales > 0 && (
+            <motion.button
+              whileHover={{ x: 4 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
+                navigate('/offline-sales');
+                setIsMobileOpen(false);
+              }}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
+            >
+              <CloudOff className="h-5 w-5 shrink-0" />
+              {!isCollapsed && (
+                <span className="font-medium flex-1">Vendas Offline</span>
+              )}
+              <Badge variant="secondary" className="bg-amber-500 text-white">
+                {pendingOfflineSales}
+              </Badge>
+            </motion.button>
+          )}
         </nav>
 
         {/* Collapse Toggle (Desktop) */}
