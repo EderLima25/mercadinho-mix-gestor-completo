@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
+import { ExcelImporter } from './ExcelImporter';
 
 export function ImportExport() {
   const [importing, setImporting] = useState(false);
@@ -164,6 +165,9 @@ export function ImportExport() {
 
   return (
     <div className="space-y-6">
+      {/* Importador Excel específico para o formato do Mercadinho Mix */}
+      <ExcelImporter />
+
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Import Section */}
         <Card className="p-6">

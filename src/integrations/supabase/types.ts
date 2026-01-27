@@ -41,10 +41,14 @@ export type Database = {
           category_id: string | null
           cost_price: number
           created_at: string
+          description: string | null
           id: string
+          internal_code: string | null
+          is_active: boolean
           min_stock: number
           name: string
           price: number
+          sell_by_weight: boolean
           stock: number
           unit: string
           updated_at: string
@@ -54,10 +58,14 @@ export type Database = {
           category_id?: string | null
           cost_price?: number
           created_at?: string
+          description?: string | null
           id?: string
+          internal_code?: string | null
+          is_active?: boolean
           min_stock?: number
           name: string
           price?: number
+          sell_by_weight?: boolean
           stock?: number
           unit?: string
           updated_at?: string
@@ -67,10 +75,14 @@ export type Database = {
           category_id?: string | null
           cost_price?: number
           created_at?: string
+          description?: string | null
           id?: string
+          internal_code?: string | null
+          is_active?: boolean
           min_stock?: number
           name?: string
           price?: number
+          sell_by_weight?: boolean
           stock?: number
           unit?: string
           updated_at?: string
