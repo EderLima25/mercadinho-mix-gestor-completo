@@ -15,6 +15,10 @@ export interface Product {
   min_stock: number;
   category_id: string | null;
   unit: string;
+  description?: string | null;
+  is_active: boolean;
+  internal_code?: string | null;
+  sell_by_weight: boolean;
   created_at: string;
   updated_at: string;
   category?: { id: string; name: string; color: string } | null;
@@ -29,6 +33,10 @@ export interface ProductInsert {
   min_stock: number;
   category_id?: string | null;
   unit: string;
+  description?: string | null;
+  is_active?: boolean;
+  internal_code?: string | null;
+  sell_by_weight?: boolean;
 }
 
 export function useProducts() {

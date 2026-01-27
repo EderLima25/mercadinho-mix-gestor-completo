@@ -74,6 +74,10 @@ export function ProductManager() {
     min_stock: '',
     category_id: '',
     unit: 'un',
+    description: '',
+    is_active: true,
+    internal_code: '',
+    sell_by_weight: false,
   });
 
   const filteredProducts = products.filter(
@@ -115,6 +119,10 @@ export function ProductManager() {
       min_stock: '',
       category_id: '',
       unit: 'un',
+      description: '',
+      is_active: true,
+      internal_code: '',
+      sell_by_weight: false,
     });
     setEditingProduct(null);
   };
@@ -131,6 +139,10 @@ export function ProductManager() {
       min_stock: parseInt(formData.min_stock),
       category_id: formData.category_id || null,
       unit: formData.unit,
+      description: formData.description || null,
+      is_active: formData.is_active,
+      internal_code: formData.internal_code || null,
+      sell_by_weight: formData.sell_by_weight,
     };
 
     if (editingProduct) {
@@ -154,6 +166,10 @@ export function ProductManager() {
       min_stock: String(product.min_stock),
       category_id: product.category_id || '',
       unit: product.unit,
+      description: product.description || '',
+      is_active: product.is_active ?? true,
+      internal_code: product.internal_code || '',
+      sell_by_weight: product.sell_by_weight ?? false,
     });
     setIsDialogOpen(true);
   };
@@ -382,6 +398,44 @@ export function ProductManager() {
                       <SelectItem value="pct">Pacote</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div>
+                  <Label htmlFor="internal_code">Código Interno</Label>
+                  <Input
+                    id="internal_code"
+                    value={formData.internal_code}
+                    onChange={(e) => setFormData({ ...formData, internal_code: e.target.value })}
+                    placeholder="Opcional"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label htmlFor="description">Descrição</Label>
+                  <Input
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Descrição opcional do produto"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="sell_by_weight"
+                    checked={formData.sell_by_weight}
+                    onChange={(e) => setFormData({ ...formData, sell_by_weight: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <Label htmlFor="sell_by_weight" className="cursor-pointer">Venda por peso</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="is_active"
+                    checked={formData.is_active}
+                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <Label htmlFor="is_active" className="cursor-pointer">Produto ativo</Label>
                 </div>
               </div>
               <div className="flex gap-3 justify-end">
