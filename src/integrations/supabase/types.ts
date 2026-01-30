@@ -42,6 +42,7 @@ export type Database = {
           cost_price: number
           created_at: string
           description: string | null
+          fornecedor_id: string | null
           id: string
           internal_code: string | null
           is_active: boolean
@@ -59,6 +60,7 @@ export type Database = {
           cost_price?: number
           created_at?: string
           description?: string | null
+          fornecedor_id?: string | null
           id?: string
           internal_code?: string | null
           is_active?: boolean
@@ -76,6 +78,7 @@ export type Database = {
           cost_price?: number
           created_at?: string
           description?: string | null
+          fornecedor_id?: string | null
           id?: string
           internal_code?: string | null
           is_active?: boolean
@@ -93,6 +96,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -187,6 +197,39 @@ export type Database = {
           payment_method?: string
           total?: number
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      suppliers: {
+        Row: {
+          address: string | null
+          cnpj: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
