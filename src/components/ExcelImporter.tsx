@@ -19,6 +19,7 @@ interface ImportedProduct {
   min_stock: number;
   unit: string;
   category_id: string | null;
+  fornecedor_id: string | null;
   description: string | null;
   is_active: boolean;
   internal_code: string | null;
@@ -98,6 +99,13 @@ export function ExcelImporter() {
     // Venda por peso (1 = true, 0 = false)
     const sellByWeight = row.venda_por_peso === 1 || row.venda_por_peso === '1' || row.sell_by_weight === true;
 
+    // Fornecedor ID (pode ser null se não existir ou não for UUID válido)
+    let fornecedorId: string | null = null;
+    const rawFornecedorId = row.fornecedor_id || row.fornecedorId || null;
+    if (rawFornecedorId && typeof rawFornecedorId === 'string' && rawFornecedorId.length === 36) {
+      fornecedorId = rawFornecedorId;
+    }
+
     return {
       name,
       barcode,
@@ -107,6 +115,7 @@ export function ExcelImporter() {
       min_stock: minStock,
       unit,
       category_id: categoryId,
+      fornecedor_id: fornecedorId,
       description,
       is_active: isActive,
       internal_code: internalCode,
@@ -356,6 +365,7 @@ export function ExcelImporter() {
             <li>• preco_venda</li>
             <li>• preco_custo</li>
             <li>• categoria</li>
+            <li>• fornecedor_id</li>
             <li>• estoque_minimo</li>
             <li>• unidade_medida</li>
             <li>• descricao</li>

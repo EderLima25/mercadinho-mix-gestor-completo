@@ -14,6 +14,7 @@ export interface Product {
   stock: number;
   min_stock: number;
   category_id: string | null;
+  fornecedor_id: string | null;
   unit: string;
   description?: string | null;
   is_active: boolean;
@@ -32,6 +33,7 @@ export interface ProductInsert {
   stock: number;
   min_stock: number;
   category_id?: string | null;
+  fornecedor_id?: string | null;
   unit: string;
   description?: string | null;
   is_active?: boolean;
