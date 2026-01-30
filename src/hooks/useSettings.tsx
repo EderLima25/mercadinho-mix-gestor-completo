@@ -9,6 +9,14 @@ export interface StoreSettings {
   logo?: string;
 }
 
+export interface PixSettings {
+  enabled: boolean;
+  pixKey: string;
+  pixKeyType: 'cpf' | 'cnpj' | 'email' | 'phone' | 'random';
+  merchantName: string;
+  merchantCity: string;
+}
+
 export interface PrinterSettings {
   autoConnect: boolean;
   autoPrint: boolean;
@@ -43,6 +51,7 @@ export interface SystemSettings {
 
 export interface AppSettings {
   store: StoreSettings;
+  pix: PixSettings;
   printer: PrinterSettings;
   scanner: ScannerSettings;
   notifications: NotificationSettings;
@@ -57,6 +66,13 @@ const defaultSettings: AppSettings = {
     phone: '(11) 99999-9999',
     email: 'contato@mercadinhomix.com.br',
     cnpj: '12.345.678/0001-90',
+  },
+  pix: {
+    enabled: false,
+    pixKey: '',
+    pixKeyType: 'cpf',
+    merchantName: 'Mercadinho Mix',
+    merchantCity: 'Sao Paulo',
   },
   printer: {
     autoConnect: true,
@@ -123,6 +139,12 @@ export function useSettings() {
   const updateStoreSettings = (storeSettings: Partial<StoreSettings>) => {
     saveSettings({
       store: { ...settings.store, ...storeSettings }
+    });
+  };
+
+  const updatePixSettings = (pixSettings: Partial<PixSettings>) => {
+    saveSettings({
+      pix: { ...settings.pix, ...pixSettings }
     });
   };
 
@@ -206,6 +228,7 @@ export function useSettings() {
     isLoading,
     saveSettings,
     updateStoreSettings,
+    updatePixSettings,
     updatePrinterSettings,
     updateScannerSettings,
     updateNotificationSettings,

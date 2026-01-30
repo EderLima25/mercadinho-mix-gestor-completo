@@ -52,16 +52,33 @@ export function useProducts() {
     queryFn: async () => {
       if (isOnline) {
         try {
-          const { data, error } = await supabase
-            .from('products')
-            .select('*, category:categories(*)')
-            .order('name');
-          
-          if (error) throw error;
+          // Fetch all products with pagination to overcome 1000 row limit
+          let allProducts: Product[] = [];
+          let from = 0;
+          const batchSize = 1000;
+          let hasMore = true;
+
+          while (hasMore) {
+            const { data, error } = await supabase
+              .from('products')
+              .select('*, category:categories(*)')
+              .order('name')
+              .range(from, from + batchSize - 1);
+            
+            if (error) throw error;
+            
+            if (data && data.length > 0) {
+              allProducts = [...allProducts, ...data];
+              from += batchSize;
+              hasMore = data.length === batchSize;
+            } else {
+              hasMore = false;
+            }
+          }
           
           // Cache products locally
-          await localCache.saveProducts(data);
-          return data as Product[];
+          await localCache.saveProducts(allProducts);
+          return allProducts as Product[];
         } catch (error) {
           // If online but request fails, fallback to cache
           console.warn('Failed to fetch from server, using cache:', error);
