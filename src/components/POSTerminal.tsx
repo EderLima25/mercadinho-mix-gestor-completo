@@ -16,9 +16,12 @@ import { Label } from '@/components/ui/label';
 import { useProducts, Product } from '@/hooks/useProducts';
 import { useSales } from '@/hooks/useSales';
 import { QuickProductModal } from './QuickProductModal';
+import { PixQRCodeModal } from './PixQRCodeModal';
 import { useToast } from '@/hooks/use-toast';
 import { BarcodeScanner } from '@/utils/barcodeScanner';
 import { ThermalPrinter } from '@/utils/thermalPrinter';
+import { useSettings, PixSettings } from '@/hooks/useSettings';
+import { PixConfig } from '@/utils/pixGenerator';
 
 interface CartItem {
   product: Product;
@@ -33,6 +36,7 @@ export function POSTerminal() {
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [showPixModal, setShowPixModal] = useState(false);
   const [unknownBarcode, setUnknownBarcode] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'cash' | 'credit' | 'debit' | 'pix'>('cash');
   const [discount, setDiscount] = useState(0);
@@ -48,10 +52,24 @@ export function POSTerminal() {
   const { products, getProductByBarcode } = useProducts();
   const { createSale, topProducts } = useSales();
   const { toast } = useToast();
+  const { settings } = useSettings();
 
   // Instâncias dos utilitários de hardware
   const barcodeScanner = BarcodeScanner.getInstance();
   const thermalPrinter = ThermalPrinter.getInstance();
+
+  // Configuração PIX
+  const getPixConfig = (): PixConfig | null => {
+    const pix = settings.pix;
+    if (!pix.enabled || !pix.pixKey) return null;
+    return {
+      pixKey: pix.pixKey,
+      pixKeyType: pix.pixKeyType,
+      merchantName: pix.merchantName || settings.store.name,
+      merchantCity: pix.merchantCity || 'Sao Paulo',
+    };
+  };
+
 
   // Função para verificar se produto é vendido por peso/volume
   const isWeightBasedProduct = (product: Product) => {
@@ -380,6 +398,21 @@ export function POSTerminal() {
 
     try {
       console.log('handlePayment called');
+      
+      // Para pagamento PIX, abrir modal de QR Code
+      if (selectedPaymentMethod === 'pix') {
+        const pixConfig = getPixConfig();
+        if (!pixConfig) {
+          toast({
+            title: 'PIX não configurado',
+            description: 'Configure a chave PIX nas configurações do sistema.',
+            variant: 'destructive',
+          });
+          return;
+        }
+        setShowPixModal(true);
+        return;
+      }
       
       // Validações para pagamento em dinheiro
       if (selectedPaymentMethod === 'cash') {
@@ -944,6 +977,44 @@ export function POSTerminal() {
         onOpenChange={setShowQuickAdd}
         barcode={unknownBarcode}
         onProductAdded={handleProductAdded}
+      />
+
+      {/* Modal PIX QR Code */}
+      <PixQRCodeModal
+        open={showPixModal}
+        onClose={() => setShowPixModal(false)}
+        amount={finalTotal}
+        pixConfig={getPixConfig()}
+        onPaymentConfirmed={() => {
+          setShowPixModal(false);
+          // Processar a venda após confirmação do PIX
+          const items = cart.map(item => ({
+            product_id: item.product.id,
+            quantity: item.quantity,
+            unit_price: Number(item.product.price),
+            subtotal: item.subtotal,
+          }));
+          
+          createSale.mutate({
+            items,
+            total: finalTotal,
+            paymentMethod: 'pix',
+          }, {
+            onSuccess: () => {
+              setCart([]);
+              setDiscount(0);
+              setReceivedAmount('');
+              printReceipt();
+            },
+            onError: (error) => {
+              toast({
+                title: 'Erro ao processar venda',
+                description: error.message,
+                variant: 'destructive',
+              });
+            }
+          });
+        }}
       />
 
       {/* Dialog para inserir peso/volume */}

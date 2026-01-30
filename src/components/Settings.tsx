@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Store, 
@@ -21,11 +22,16 @@ import {
   RotateCcw,
   TestTube,
   Wifi,
-  HardDrive
+  HardDrive,
+  Smartphone,
+  QrCode,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { ThermalPrinter } from '@/utils/thermalPrinter';
 import { BarcodeScanner } from '@/utils/barcodeScanner';
 import { BackupManager } from './BackupManager';
+import { validatePixKey, formatPixKeyForDisplay } from '@/utils/pixGenerator';
 
 interface StoreSettings {
   name: string;
@@ -34,6 +40,14 @@ interface StoreSettings {
   email: string;
   cnpj: string;
   logo?: string;
+}
+
+interface PixSettings {
+  enabled: boolean;
+  pixKey: string;
+  pixKeyType: 'cpf' | 'cnpj' | 'email' | 'phone' | 'random';
+  merchantName: string;
+  merchantCity: string;
 }
 
 interface PrinterSettings {
@@ -80,6 +94,14 @@ export function Settings() {
     cnpj: '12.345.678/0001-90',
   });
 
+  const [pixSettings, setPixSettings] = useState<PixSettings>({
+    enabled: false,
+    pixKey: '',
+    pixKeyType: 'cpf',
+    merchantName: 'Mercadinho Mix',
+    merchantCity: 'Sao Paulo',
+  });
+
   const [printerSettings, setPrinterSettings] = useState<PrinterSettings>({
     autoConnect: true,
     autoPrint: true,
@@ -115,6 +137,9 @@ export function Settings() {
   const [isConnectedToPrinter, setIsConnectedToPrinter] = useState(false);
   const [isScannerActive, setIsScannerActive] = useState(false);
 
+  // Validação da chave PIX
+  const isPixKeyValid = pixSettings.pixKey ? validatePixKey(pixSettings.pixKey, pixSettings.pixKeyType) : false;
+
   // Carregar configurações do localStorage
   useEffect(() => {
     const loadSettings = () => {
@@ -122,6 +147,7 @@ export function Settings() {
       if (stored) {
         const settings = JSON.parse(stored);
         setStoreSettings(settings.store || storeSettings);
+        setPixSettings(settings.pix || pixSettings);
         setPrinterSettings(settings.printer || printerSettings);
         setScannerSettings(settings.scanner || scannerSettings);
         setNotificationSettings(settings.notifications || notificationSettings);
@@ -133,8 +159,19 @@ export function Settings() {
 
   // Salvar configurações
   const saveSettings = () => {
+    // Validar PIX antes de salvar
+    if (pixSettings.enabled && !isPixKeyValid) {
+      toast({
+        title: 'Chave PIX inválida',
+        description: 'Por favor, verifique se a chave PIX está correta.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const allSettings = {
       store: storeSettings,
+      pix: pixSettings,
       printer: printerSettings,
       scanner: scannerSettings,
       notifications: notificationSettings,
@@ -162,6 +199,14 @@ export function Settings() {
         phone: '(11) 99999-9999',
         email: 'contato@mercadinhomix.com.br',
         cnpj: '12.345.678/0001-90',
+      });
+
+      setPixSettings({
+        enabled: false,
+        pixKey: '',
+        pixKeyType: 'cpf',
+        merchantName: 'Mercadinho Mix',
+        merchantCity: 'Sao Paulo',
       });
       
       setPrinterSettings({
@@ -281,8 +326,9 @@ export function Settings() {
       </div>
 
       <Tabs defaultValue="store" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="store">Loja</TabsTrigger>
+          <TabsTrigger value="pix">PIX</TabsTrigger>
           <TabsTrigger value="hardware">Hardware</TabsTrigger>
           <TabsTrigger value="notifications">Notificações</TabsTrigger>
           <TabsTrigger value="system">Sistema</TabsTrigger>
@@ -343,6 +389,136 @@ export function Settings() {
                   onChange={(e) => setStoreSettings({...storeSettings, address: e.target.value})}
                 />
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Configurações PIX */}
+        <TabsContent value="pix">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <QrCode className="h-5 w-5" />
+                Configurações do PIX
+                <Badge variant={pixSettings.enabled && isPixKeyValid ? "default" : "secondary"}>
+                  {pixSettings.enabled && isPixKeyValid ? "Ativo" : "Inativo"}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Habilitar pagamento via PIX</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Permite gerar QR Code PIX no PDV para pagamentos
+                  </p>
+                </div>
+                <Switch
+                  checked={pixSettings.enabled}
+                  onCheckedChange={(checked) => setPixSettings({...pixSettings, enabled: checked})}
+                />
+              </div>
+
+              {pixSettings.enabled && (
+                <>
+                  <Separator />
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="pixKeyType">Tipo da Chave PIX</Label>
+                      <Select
+                        value={pixSettings.pixKeyType}
+                        onValueChange={(value: PixSettings['pixKeyType']) => setPixSettings({...pixSettings, pixKeyType: value})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cpf">CPF</SelectItem>
+                          <SelectItem value="cnpj">CNPJ</SelectItem>
+                          <SelectItem value="email">E-mail</SelectItem>
+                          <SelectItem value="phone">Telefone</SelectItem>
+                          <SelectItem value="random">Chave Aleatória</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="pixKey">
+                        Chave PIX
+                        {pixSettings.pixKey && (
+                          isPixKeyValid ? (
+                            <CheckCircle2 className="inline ml-2 h-4 w-4 text-green-500" />
+                          ) : (
+                            <AlertCircle className="inline ml-2 h-4 w-4 text-red-500" />
+                          )
+                        )}
+                      </Label>
+                      <Input
+                        id="pixKey"
+                        value={pixSettings.pixKey}
+                        onChange={(e) => setPixSettings({...pixSettings, pixKey: e.target.value})}
+                        placeholder={
+                          pixSettings.pixKeyType === 'cpf' ? '000.000.000-00' :
+                          pixSettings.pixKeyType === 'cnpj' ? '00.000.000/0000-00' :
+                          pixSettings.pixKeyType === 'email' ? 'email@exemplo.com' :
+                          pixSettings.pixKeyType === 'phone' ? '(11) 99999-9999' :
+                          'Chave aleatória de 32 caracteres'
+                        }
+                      />
+                      {pixSettings.pixKey && !isPixKeyValid && (
+                        <p className="text-sm text-red-500 mt-1">
+                          Chave PIX inválida para o tipo selecionado
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="merchantName">Nome do Recebedor</Label>
+                        <Input
+                          id="merchantName"
+                          value={pixSettings.merchantName}
+                          onChange={(e) => setPixSettings({...pixSettings, merchantName: e.target.value})}
+                          placeholder="Nome que aparecerá no PIX"
+                          maxLength={25}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Máximo 25 caracteres
+                        </p>
+                      </div>
+                      <div>
+                        <Label htmlFor="merchantCity">Cidade</Label>
+                        <Input
+                          id="merchantCity"
+                          value={pixSettings.merchantCity}
+                          onChange={(e) => setPixSettings({...pixSettings, merchantCity: e.target.value})}
+                          placeholder="Cidade do estabelecimento"
+                          maxLength={15}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Máximo 15 caracteres (sem acentos)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="p-4 bg-muted rounded-lg">
+                    <h4 className="font-medium flex items-center gap-2 mb-2">
+                      <Smartphone className="h-4 w-4" />
+                      Como funciona
+                    </h4>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                      <li>• Ao selecionar PIX no PDV, um QR Code será gerado automaticamente</li>
+                      <li>• O cliente escaneia o QR Code com o app do banco</li>
+                      <li>• Após o pagamento, confirme manualmente para finalizar a venda</li>
+                      <li>• O QR Code expira em 5 minutos por segurança</li>
+                    </ul>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
