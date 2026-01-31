@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface OfflineAction {
@@ -12,7 +12,6 @@ interface OfflineAction {
 export function useOffline() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [offlineQueue, setOfflineQueue] = useState<OfflineAction[]>(() => {
-    // Initialize with data from localStorage
     try {
       return JSON.parse(localStorage.getItem('offlineQueue') || '[]');
     } catch {
@@ -20,21 +19,18 @@ export function useOffline() {
     }
   });
   const [isSyncing, setIsSyncing] = useState(false);
-  const [lastLoggedStatus, setLastLoggedStatus] = useState<boolean | null>(null);
+  
+  // Use ref to track if we should process queue
+  const shouldProcessQueue = useRef(false);
 
-  // Removed excessive logging - only log on state changes
-
-  // Improved network detection
   const checkNetworkStatus = useCallback(async () => {
-    // First check navigator.onLine - if it says offline, we're definitely offline
     if (!navigator.onLine) {
       return false;
     }
     
     try {
-      // Try to make a simple request to check actual connectivity
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); // Reduced timeout
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
       
       const response = await fetch('/favicon.ico', { 
         method: 'HEAD',
@@ -49,120 +45,7 @@ export function useOffline() {
     }
   }, []);
 
-  useEffect(() => {
-    const handleOnline = async () => {
-      if (lastLoggedStatus !== true) {
-        setLastLoggedStatus(true);
-      }
-      const actuallyOnline = await checkNetworkStatus();
-      if (actuallyOnline) {
-        setIsOnline(true);
-        setTimeout(() => processOfflineQueue(), 1000);
-      }
-    };
-
-    const handleOffline = () => {
-      if (lastLoggedStatus !== false) {
-        setLastLoggedStatus(false);
-      }
-      setIsOnline(false);
-    };
-
-    // Check initial status
-    checkNetworkStatus().then(setIsOnline);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    // Periodic connectivity check - reduced frequency and logging
-    const intervalId = setInterval(async () => {
-      const actualStatus = await checkNetworkStatus();
-      const navigatorStatus = navigator.onLine;
-      
-      // Use the more restrictive status (if either says offline, we're offline)
-      const finalStatus = actualStatus && navigatorStatus;
-      
-      if (finalStatus !== isOnline) {
-        if (finalStatus && lastLoggedStatus !== true) {
-          setLastLoggedStatus(true);
-        } else if (!finalStatus && lastLoggedStatus !== false) {
-          setLastLoggedStatus(false);
-        }
-        setIsOnline(finalStatus);
-        if (finalStatus && offlineQueue.length > 0) {
-          setTimeout(() => processOfflineQueue(), 1000);
-        }
-      }
-    }, 20000); // Increased to 20 seconds to reduce frequency even more
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      clearInterval(intervalId);
-    };
-  }, [checkNetworkStatus, isOnline, offlineQueue.length, lastLoggedStatus]);
-
-  const addToOfflineQueue = useCallback((action: Omit<OfflineAction, 'id' | 'timestamp'>) => {
-    const newAction: OfflineAction = { 
-      ...action, 
-      id: `${action.type}_${Date.now()}_${Math.random()}`,
-      timestamp: Date.now(),
-      retries: 0
-    };
-    
-    setOfflineQueue(prev => {
-      const updated = [...prev, newAction];
-      try {
-        localStorage.setItem('offlineQueue', JSON.stringify(updated));
-      } catch {
-        // Silent fail for storage errors
-      }
-      return updated;
-    });
-  }, []);
-
-  const processOfflineQueue = useCallback(async () => {
-    if (isSyncing || !isOnline || offlineQueue.length === 0) {
-      return;
-    }
-
-    setIsSyncing(true);
-    
-    const queue = [...offlineQueue];
-    const processedIds: string[] = [];
-    
-    for (const action of queue) {
-      try {
-        await processQueuedAction(action);
-        processedIds.push(action.id);
-      } catch {
-        const retries = (action.retries || 0) + 1;
-        if (retries < 3) {
-          setOfflineQueue(prev => prev.map(item => 
-            item.id === action.id ? { ...item, retries } : item
-          ));
-        } else {
-          processedIds.push(action.id);
-        }
-      }
-    }
-    
-    if (processedIds.length > 0) {
-      setOfflineQueue(prev => {
-        const updated = prev.filter(item => !processedIds.includes(item.id));
-        try {
-          localStorage.setItem('offlineQueue', JSON.stringify(updated));
-        } catch {
-          // Silent fail
-        }
-        return updated;
-      });
-    }
-    
-    setIsSyncing(false);
-  }, [isSyncing, isOnline, offlineQueue]);
-
-  const processQueuedAction = async (action: OfflineAction) => {
+  const processQueuedAction = useCallback(async (action: OfflineAction) => {
     switch (action.type) {
       case 'sale':
         await processSaleSync(action.data);
@@ -179,13 +62,10 @@ export function useOffline() {
       case 'updateStock':
         await processStockUpdate(action.data);
         break;
-      default:
-        console.warn('Unknown action type:', action.type);
     }
-  };
+  }, []);
 
   const processSaleSync = async (saleData: any) => {
-    // Create sale online
     const { data: sale, error: saleError } = await supabase
       .from('sales')
       .insert({
@@ -198,7 +78,6 @@ export function useOffline() {
     
     if (saleError) throw saleError;
 
-    // Create sale items
     const saleItems = saleData.items.map((item: any) => ({
       sale_id: sale.id,
       product_id: item.product_id,
@@ -213,7 +92,6 @@ export function useOffline() {
     
     if (itemsError) throw itemsError;
 
-    // Update stock for each product
     for (const item of saleData.items) {
       const { data: product } = await supabase
         .from('products')
@@ -265,6 +143,123 @@ export function useOffline() {
     
     if (error) throw error;
   };
+
+  const processOfflineQueue = useCallback(async () => {
+    if (isSyncing || !isOnline || offlineQueue.length === 0) {
+      return;
+    }
+
+    setIsSyncing(true);
+    
+    const queue = [...offlineQueue];
+    const processedIds: string[] = [];
+    
+    for (const action of queue) {
+      try {
+        await processQueuedAction(action);
+        processedIds.push(action.id);
+      } catch {
+        const retries = (action.retries || 0) + 1;
+        if (retries < 3) {
+          setOfflineQueue(prev => prev.map(item => 
+            item.id === action.id ? { ...item, retries } : item
+          ));
+        } else {
+          processedIds.push(action.id);
+        }
+      }
+    }
+    
+    if (processedIds.length > 0) {
+      setOfflineQueue(prev => {
+        const updated = prev.filter(item => !processedIds.includes(item.id));
+        try {
+          localStorage.setItem('offlineQueue', JSON.stringify(updated));
+        } catch {
+          // Silent fail
+        }
+        return updated;
+      });
+    }
+    
+    setIsSyncing(false);
+  }, [isSyncing, isOnline, offlineQueue, processQueuedAction]);
+
+  // Store processOfflineQueue in ref for use in effects
+  const processQueueRef = useRef(processOfflineQueue);
+  processQueueRef.current = processOfflineQueue;
+
+  useEffect(() => {
+    const handleOnline = async () => {
+      const actuallyOnline = await checkNetworkStatus();
+      if (actuallyOnline) {
+        setIsOnline(true);
+        shouldProcessQueue.current = true;
+      }
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
+
+    checkNetworkStatus().then(setIsOnline);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [checkNetworkStatus]);
+
+  // Process queue when coming back online
+  useEffect(() => {
+    if (shouldProcessQueue.current && isOnline && offlineQueue.length > 0) {
+      shouldProcessQueue.current = false;
+      const timer = setTimeout(() => {
+        processQueueRef.current();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isOnline, offlineQueue.length]);
+
+  // Periodic connectivity check
+  useEffect(() => {
+    const intervalId = setInterval(async () => {
+      const actualStatus = await checkNetworkStatus();
+      const navigatorStatus = navigator.onLine;
+      const finalStatus = actualStatus && navigatorStatus;
+      
+      if (finalStatus !== isOnline) {
+        setIsOnline(finalStatus);
+        if (finalStatus && offlineQueue.length > 0) {
+          shouldProcessQueue.current = true;
+        }
+      }
+    }, 20000);
+
+    return () => clearInterval(intervalId);
+  }, [checkNetworkStatus, isOnline, offlineQueue.length]);
+
+  const addToOfflineQueue = useCallback((action: Omit<OfflineAction, 'id' | 'timestamp'>) => {
+    const newAction: OfflineAction = { 
+      ...action, 
+      id: `${action.type}_${Date.now()}_${Math.random()}`,
+      timestamp: Date.now(),
+      retries: 0
+    };
+    
+    setOfflineQueue(prev => {
+      const updated = [...prev, newAction];
+      try {
+        localStorage.setItem('offlineQueue', JSON.stringify(updated));
+      } catch {
+        // Silent fail
+      }
+      return updated;
+    });
+  }, []);
 
   const clearOfflineQueue = useCallback(() => {
     setOfflineQueue([]);
