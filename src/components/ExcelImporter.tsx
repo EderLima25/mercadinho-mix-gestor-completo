@@ -150,9 +150,6 @@ export function ExcelImporter() {
       const worksheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(worksheet);
 
-      console.log(`Processando ${data.length} linhas do Excel...`);
-      console.log('Primeira linha:', data[0]);
-
       // Converter para formato de produtos
       const products: ImportedProduct[] = [];
       const parseErrors: string[] = [];
@@ -161,7 +158,6 @@ export function ExcelImporter() {
       data.forEach((row: any, index) => {
         const product = parseExcelRow(row, categoriesMap);
         if (product) {
-          // Evitar duplicatas no mesmo arquivo
           if (!seenBarcodes.has(product.barcode)) {
             seenBarcodes.add(product.barcode);
             products.push(product);
@@ -170,9 +166,6 @@ export function ExcelImporter() {
           parseErrors.push(`Linha ${index + 2}: nome ou código de barras inválido`);
         }
       });
-
-      console.log(`${products.length} produtos válidos para importar`);
-      console.log('Exemplo de produto:', products[0]);
 
       if (products.length === 0) {
         toast({

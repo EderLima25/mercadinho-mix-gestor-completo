@@ -77,16 +77,6 @@ const Index = () => {
       instructions = 'Use Chrome ou Edge para melhor suporte a PWA. No Firefox: Menu > "Instalar este site como app"';
     }
     
-    // Log debug info
-    console.log('=== PWA Install Debug ===');
-    console.log('User Agent:', navigator.userAgent);
-    console.log('Is Chrome:', isChrome);
-    console.log('Is Edge:', isEdge);
-    console.log('Is iOS:', isIOS);
-    console.log('Is Android:', isAndroid);
-    console.log('PWA Installed:', isPWAInstalled());
-    console.log('========================');
-    
     toast({
       title: 'Como instalar o app',
       description: instructions,

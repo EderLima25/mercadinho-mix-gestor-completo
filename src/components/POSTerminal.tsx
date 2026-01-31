@@ -397,7 +397,6 @@ export function POSTerminal() {
     if (cart.length === 0) return;
 
     try {
-      console.log('handlePayment called');
       
       // Para pagamento PIX, abrir modal de QR Code
       if (selectedPaymentMethod === 'pix') {
@@ -445,16 +444,12 @@ export function POSTerminal() {
         subtotal: item.subtotal,
       }));
 
-      console.log('Calling createSale.mutate...');
-      
-      // Usar mutate ao invés de mutateAsync para evitar problemas com promises
       createSale.mutate({
         items,
         total: finalTotal,
         paymentMethod: selectedPaymentMethod,
       }, {
-        onSuccess: (sale) => {
-          console.log('Sale completed successfully:', sale);
+        onSuccess: () => {
           // Limpar formulário após venda
           setCart([]);
           setDiscount(0);

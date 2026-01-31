@@ -44,32 +44,25 @@ export function useOffline() {
       
       clearTimeout(timeoutId);
       return response.ok;
-    } catch (error) {
-      console.log('Network check failed:', error.name);
+    } catch {
       return false;
     }
   }, []);
 
   useEffect(() => {
     const handleOnline = async () => {
-      // Only log if this is a new status change
       if (lastLoggedStatus !== true) {
-        console.log('Network status changed: ONLINE');
         setLastLoggedStatus(true);
       }
-      // Double-check with actual network request
       const actuallyOnline = await checkNetworkStatus();
       if (actuallyOnline) {
         setIsOnline(true);
-        // Process offline queue when back online with delay
         setTimeout(() => processOfflineQueue(), 1000);
       }
     };
 
     const handleOffline = () => {
-      // Only log if this is a new status change
       if (lastLoggedStatus !== false) {
-        console.log('Network status changed: OFFLINE');
         setLastLoggedStatus(false);
       }
       setIsOnline(false);
@@ -90,12 +83,9 @@ export function useOffline() {
       const finalStatus = actualStatus && navigatorStatus;
       
       if (finalStatus !== isOnline) {
-        // Only log when there's an actual change, not repeated states
         if (finalStatus && lastLoggedStatus !== true) {
-          console.log('Network restored: going online');
           setLastLoggedStatus(true);
         } else if (!finalStatus && lastLoggedStatus !== false) {
-          console.log('Network lost: going offline');
           setLastLoggedStatus(false);
         }
         setIsOnline(finalStatus);
@@ -122,16 +112,13 @@ export function useOffline() {
     
     setOfflineQueue(prev => {
       const updated = [...prev, newAction];
-      // Save to localStorage for persistence
       try {
         localStorage.setItem('offlineQueue', JSON.stringify(updated));
-      } catch (error) {
-        console.error('Error saving to offline queue:', error);
+      } catch {
+        // Silent fail for storage errors
       }
       return updated;
     });
-    
-    console.log('Added to offline queue:', newAction);
   }, []);
 
   const processOfflineQueue = useCallback(async () => {
@@ -139,7 +126,6 @@ export function useOffline() {
       return;
     }
 
-    console.log('Processing offline queue...', offlineQueue.length, 'items');
     setIsSyncing(true);
     
     const queue = [...offlineQueue];
@@ -147,48 +133,36 @@ export function useOffline() {
     
     for (const action of queue) {
       try {
-        console.log('Processing action:', action.type, action.id);
         await processQueuedAction(action);
         processedIds.push(action.id);
-        console.log('Successfully processed:', action.id);
-      } catch (error) {
-        console.error('Error processing queued action:', action.id, error);
-        
-        // Increment retry count
+      } catch {
         const retries = (action.retries || 0) + 1;
         if (retries < 3) {
-          // Update retry count in queue
           setOfflineQueue(prev => prev.map(item => 
             item.id === action.id ? { ...item, retries } : item
           ));
         } else {
-          // Remove after 3 failed attempts
           processedIds.push(action.id);
-          console.warn('Removing action after 3 failed attempts:', action.id);
         }
       }
     }
     
-    // Remove processed items from queue
     if (processedIds.length > 0) {
       setOfflineQueue(prev => {
         const updated = prev.filter(item => !processedIds.includes(item.id));
         try {
           localStorage.setItem('offlineQueue', JSON.stringify(updated));
-        } catch (error) {
-          console.error('Error updating offline queue:', error);
+        } catch {
+          // Silent fail
         }
         return updated;
       });
     }
     
     setIsSyncing(false);
-    console.log('Finished processing offline queue');
   }, [isSyncing, isOnline, offlineQueue]);
 
   const processQueuedAction = async (action: OfflineAction) => {
-    console.log('Processing queued action:', action.type, action.data);
-    
     switch (action.type) {
       case 'sale':
         await processSaleSync(action.data);
@@ -254,8 +228,6 @@ export function useOffline() {
           .eq('id', item.product_id);
       }
     }
-
-    console.log('Sale synced successfully:', sale.id);
   };
 
   const processProductAdd = async (productData: any) => {
@@ -297,21 +269,7 @@ export function useOffline() {
   const clearOfflineQueue = useCallback(() => {
     setOfflineQueue([]);
     localStorage.removeItem('offlineQueue');
-    console.log('Offline queue cleared');
   }, []);
-
-  const debugStatus = useCallback(async () => {
-    const actualStatus = await checkNetworkStatus();
-    const navigatorStatus = navigator.onLine;
-    console.log('=== Offline Status Debug ===');
-    console.log('Current isOnline state:', isOnline);
-    console.log('navigator.onLine:', navigatorStatus);
-    console.log('Actual network check:', actualStatus);
-    console.log('Queue length:', offlineQueue.length);
-    console.log('Is syncing:', isSyncing);
-    console.log('==========================');
-    return { isOnline, navigatorStatus, actualStatus, queueLength: offlineQueue.length, isSyncing };
-  }, [isOnline, offlineQueue.length, isSyncing, checkNetworkStatus]);
 
   return {
     isOnline,
@@ -320,6 +278,5 @@ export function useOffline() {
     addToOfflineQueue,
     processOfflineQueue,
     clearOfflineQueue,
-    debugStatus
   };
 }

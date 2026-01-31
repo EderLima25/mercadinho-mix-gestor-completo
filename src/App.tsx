@@ -17,24 +17,19 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function AppContent() {
-  const { processOfflineQueue, debugStatus } = useOffline();
+  const { processOfflineQueue } = useOffline();
 
   useEffect(() => {
-    // Listen for custom events to process offline queue
     const handleProcessOfflineQueue = () => {
-      console.log('Processing offline queue from custom event');
       processOfflineQueue();
     };
 
     window.addEventListener('processOfflineQueue', handleProcessOfflineQueue);
 
-    // Add debug function to global scope
-    (window as any).debugOfflineStatus = debugStatus;
-
     return () => {
       window.removeEventListener('processOfflineQueue', handleProcessOfflineQueue);
     };
-  }, [processOfflineQueue, debugStatus]);
+  }, [processOfflineQueue]);
 
   return (
     <>

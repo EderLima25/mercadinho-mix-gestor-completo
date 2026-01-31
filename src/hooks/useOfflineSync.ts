@@ -34,13 +34,11 @@ export function useOfflineSync() {
   // Monitor online/offline status
   useEffect(() => {
     const handleOnline = () => {
-      console.log('App is online');
       setIsOnline(true);
       syncPendingActions();
     };
 
     const handleOffline = () => {
-      console.log('App is offline');
       setIsOnline(false);
       toast({
         title: 'Modo Offline',
