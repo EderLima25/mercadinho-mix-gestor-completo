@@ -17,9 +17,10 @@ import { useProducts, Product } from '@/hooks/useProducts';
 import { useSales } from '@/hooks/useSales';
 import { QuickProductModal } from './QuickProductModal';
 import { PixQRCodeModal } from './PixQRCodeModal';
+import { ReceiptPreviewModal } from './ReceiptPreviewModal';
 import { useToast } from '@/hooks/use-toast';
 import { BarcodeScanner } from '@/utils/barcodeScanner';
-import { ThermalPrinter } from '@/utils/thermalPrinter';
+import { ThermalPrinter, ReceiptData } from '@/utils/thermalPrinter';
 import { useSettings, PixSettings } from '@/hooks/useSettings';
 import { PixConfig } from '@/utils/pixGenerator';
 
@@ -48,6 +49,8 @@ export function POSTerminal() {
   const [showWeightDialog, setShowWeightDialog] = useState(false);
   const [selectedProductForWeight, setSelectedProductForWeight] = useState<Product | null>(null);
   const [editingQuantity, setEditingQuantity] = useState<{[key: string]: string}>({});
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [currentReceiptData, setCurrentReceiptData] = useState<ReceiptData | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { products, getProductByBarcode } = useProducts();
   const { createSale, topProducts } = useSales();
@@ -444,6 +447,25 @@ export function POSTerminal() {
         subtotal: item.subtotal,
       }));
 
+      // Preparar dados do cupom ANTES de limpar o carrinho
+      const receiptData: ReceiptData = {
+        items: cart.map(item => ({
+          name: item.product.name,
+          quantity: item.isWeightBased ? parseFloat(item.quantity.toFixed(2)) : item.quantity,
+          unit: item.product.unit,
+          unitPrice: Number(item.product.price),
+          subtotal: item.subtotal,
+          isWeightBased: item.isWeightBased,
+        })),
+        subtotal: total,
+        discount: discountAmount,
+        total: finalTotal,
+        paymentMethod: selectedPaymentMethod,
+        receivedAmount: selectedPaymentMethod === 'cash' ? receivedValue : undefined,
+        change: selectedPaymentMethod === 'cash' ? change : undefined,
+        timestamp: new Date(),
+      };
+
       createSale.mutate({
         items,
         total: finalTotal,
@@ -455,8 +477,16 @@ export function POSTerminal() {
           setDiscount(0);
           setReceivedAmount('');
           
-          // Imprimir cupom
-          printReceipt();
+          // Guardar dados do cupom e abrir modal
+          setCurrentReceiptData(receiptData);
+          setShowReceiptModal(true);
+          
+          toast({
+            title: 'Venda finalizada!',
+            description: selectedPaymentMethod === 'cash' && change > 0 
+              ? `Troco: R$ ${change.toFixed(2)}` 
+              : 'Venda registrada com sucesso.',
+          });
         },
         onError: (error) => {
           console.error('Error in mutation:', error);
@@ -478,33 +508,24 @@ export function POSTerminal() {
     }
   };
 
-  const printReceipt = async () => {
-    const receiptData = {
-      items: cart.map(item => ({
-        name: item.product.name,
-        quantity: item.isWeightBased ? parseFloat(item.quantity.toFixed(2)) : item.quantity,
-        unit: item.product.unit,
-        unitPrice: Number(item.product.price),
-        subtotal: item.subtotal,
-        isWeightBased: item.isWeightBased,
-      })),
-      subtotal: total,
-      discount: discountAmount,
-      total: finalTotal,
-      paymentMethod: selectedPaymentMethod,
-      receivedAmount: selectedPaymentMethod === 'cash' ? receivedValue : undefined,
-      change: selectedPaymentMethod === 'cash' ? change : undefined,
-      timestamp: new Date(),
-    };
-
-    const printed = await thermalPrinter.printReceipt(receiptData);
+  // Função para imprimir cupom via impressora térmica
+  const handlePrintReceipt = async () => {
+    if (!currentReceiptData) return;
     
-    toast({
-      title: printed ? 'Cupom impresso!' : 'Cupom simulado!',
-      description: printed 
-        ? (selectedPaymentMethod === 'cash' && change > 0 ? `Troco: R$ ${change.toFixed(2)}` : 'Verifique a impressora térmica.')
-        : 'Impressora não conectada. Verifique o console.',
-    });
+    const printed = await thermalPrinter.printReceipt(currentReceiptData);
+    
+    if (printed) {
+      toast({
+        title: 'Cupom impresso!',
+        description: 'Verifique a impressora térmica.',
+      });
+    } else {
+      toast({
+        title: 'Erro ao imprimir',
+        description: 'Verifique a conexão da impressora.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleProductAdded = (product: Product) => {
@@ -982,6 +1003,23 @@ export function POSTerminal() {
         pixConfig={getPixConfig()}
         onPaymentConfirmed={() => {
           setShowPixModal(false);
+          // Preparar dados do cupom ANTES de limpar o carrinho
+          const receiptData: ReceiptData = {
+            items: cart.map(item => ({
+              name: item.product.name,
+              quantity: item.isWeightBased ? parseFloat(item.quantity.toFixed(2)) : item.quantity,
+              unit: item.product.unit,
+              unitPrice: Number(item.product.price),
+              subtotal: item.subtotal,
+              isWeightBased: item.isWeightBased,
+            })),
+            subtotal: total,
+            discount: discountAmount,
+            total: finalTotal,
+            paymentMethod: 'pix',
+            timestamp: new Date(),
+          };
+
           // Processar a venda após confirmação do PIX
           const items = cart.map(item => ({
             product_id: item.product.id,
@@ -999,7 +1037,15 @@ export function POSTerminal() {
               setCart([]);
               setDiscount(0);
               setReceivedAmount('');
-              printReceipt();
+              
+              // Guardar dados do cupom e abrir modal
+              setCurrentReceiptData(receiptData);
+              setShowReceiptModal(true);
+              
+              toast({
+                title: 'Venda finalizada!',
+                description: 'Pagamento PIX confirmado.',
+              });
             },
             onError: (error) => {
               toast({
@@ -1085,6 +1131,16 @@ export function POSTerminal() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de visualização do cupom */}
+      <ReceiptPreviewModal
+        open={showReceiptModal}
+        onOpenChange={setShowReceiptModal}
+        receiptData={currentReceiptData}
+        storeName={settings.store.name || 'MERCADINHO MIX'}
+        onPrint={handlePrintReceipt}
+        isPrinterConnected={isConnectedToPrinter}
+      />
     </div>
   );
 }
