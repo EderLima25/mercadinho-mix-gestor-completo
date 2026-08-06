@@ -98,7 +98,7 @@ export default function Auth() {
           <div className="flex flex-col items-center mb-8">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl overflow-hidden bg-white shadow-glow mb-4">
               <img 
-                src="/Mercadinho.jpg" 
+                src="/logo-mercadopdv.png" 
                 alt="MercadoPDV" 
                 className="h-full w-full object-cover"
               />

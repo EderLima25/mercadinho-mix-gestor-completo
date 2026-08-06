@@ -104,7 +104,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
         <div className="flex h-16 items-center gap-3 border-b border-slate-700 px-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden bg-white">
             <img 
-              src="/Mercadinho.jpg" 
+              src="/logo-mercadopdv.png" 
               alt="MercadoPDV" 
               className="h-full w-full object-cover"
             />
