@@ -1154,7 +1154,7 @@ export function POSTerminal() {
               </Card>
 
               {/* Valor Recebido e Troco (apenas para dinheiro) */}
-              {selectedPaymentMethod === 'cash' && (
+              {!splitMode && selectedPaymentMethod === 'cash' && (
                 <Card className="p-3">
                   <h3 className="mb-3 font-semibold text-sm">Pagamento em Dinheiro</h3>
                   <div className="space-y-2">
@@ -1194,13 +1194,23 @@ export function POSTerminal() {
 
               {/* Botão Finalizar Venda */}
               <Button
-                onClick={handlePayment}
-                disabled={createSale.isPending || (selectedPaymentMethod === 'cash' && receivedValue < finalTotal)}
+                onClick={splitMode ? handleSplitPayment : handlePayment}
+                disabled={
+                  createSale.isPending ||
+                  (splitMode
+                    ? !splitIsValid
+                    : selectedPaymentMethod === 'cash' && receivedValue < finalTotal)
+                }
                 className="w-full h-12 text-base font-bold"
                 size="lg"
               >
-                {createSale.isPending ? 'Processando...' : 'Finalizar Venda'}
+                {createSale.isPending
+                  ? 'Processando...'
+                  : splitMode
+                    ? 'Finalizar Venda (Combinado)'
+                    : 'Finalizar Venda'}
               </Button>
+
             </>
           )}
 
