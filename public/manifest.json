@@ -9,33 +9,37 @@
   "orientation": "any",
   "icons": [
     {
-      "src": "/favicon.ico",
-      "sizes": "48x48",
-      "type": "image/x-icon"
+      "src": "/favicon.png",
+      "sizes": "64x64",
+      "type": "image/png"
     },
     {
-      "src": "/Mercadinho.jpg",
+      "src": "/logo-192.png",
       "sizes": "192x192",
-      "type": "image/jpeg",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/Mercadinho.jpg",
+      "src": "/logo-mercadopdv.png",
       "sizes": "512x512",
-      "type": "image/jpeg",
+      "type": "image/png",
       "purpose": "any"
     }
   ],
-  "categories": ["business", "productivity", "utilities"],
+  "categories": [
+    "business",
+    "productivity",
+    "utilities"
+  ],
   "lang": "pt-BR",
   "dir": "ltr",
   "scope": "/",
   "prefer_related_applications": false,
   "screenshots": [
     {
-      "src": "/Mercadinho.jpg",
-      "sizes": "1280x720",
-      "type": "image/jpeg",
+      "src": "/logo-mercadopdv.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "form_factor": "wide"
     }
   ]
