@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Store, Mail, Lock, User, LogIn, UserPlus } from 'lucide-react';
+import { Store, Mail, Lock, User, LogIn, UserPlus, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +16,7 @@ const loginSchema = z.object({
 
 const signupSchema = loginSchema.extend({
   fullName: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
+  companyName: z.string().min(2, 'Informe o nome da empresa'),
 });
 
 export default function Auth() {
@@ -23,6 +24,7 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   
@@ -60,7 +62,7 @@ export default function Auth() {
           navigate('/');
         }
       } else {
-        const result = signupSchema.safeParse({ email, password, fullName });
+        const result = signupSchema.safeParse({ email, password, fullName, companyName });
         if (!result.success) {
           const fieldErrors: Record<string, string> = {};
           result.error.errors.forEach(err => {
@@ -73,12 +75,13 @@ export default function Auth() {
           return;
         }
 
-        const { error } = await signUp(email, password, fullName);
+        const { error } = await signUp(email, password, fullName, companyName);
         if (!error) {
           setIsLogin(true);
           setEmail('');
           setPassword('');
           setFullName('');
+          setCompanyName('');
         }
       }
     } finally {
