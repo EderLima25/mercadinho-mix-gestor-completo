@@ -20,6 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 
 type View = 'dashboard' | 'pos' | 'products' | 'inventory' | 'import' | 'reports' | 'users' | 'settings' | 'suppliers' | 'cash';
 
@@ -45,6 +46,7 @@ const menuItems = [
 
 export function Sidebar({ currentView, onViewChange }: SidebarProps) {
   const navigate = useNavigate();
+  const { companyName } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [pendingOfflineSales, setPendingOfflineSales] = useState(0);
@@ -106,7 +108,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
             <img 
               src="/logo-mercadopdv.png" 
               alt="MercadoPDV" 
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
             />
           </div>
           {!isCollapsed && (
@@ -116,7 +118,9 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
               className="flex flex-col"
             >
               <span className="text-lg font-bold text-white">MercadoPDV</span>
-              <span className="text-xs font-medium text-orange-400">Mix</span>
+              <span className="text-xs font-medium text-orange-400 truncate max-w-[180px]">
+                {companyName ?? 'Multiempresa'}
+              </span>
             </motion.div>
           )}
         </div>
