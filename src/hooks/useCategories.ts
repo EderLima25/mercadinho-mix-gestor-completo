@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getCompanyId } from '@/utils/tenant';
 
 export interface Category {
   id: string;
@@ -28,9 +29,10 @@ export function useCategories() {
 
   const addCategory = useMutation({
     mutationFn: async (category: { name: string; color: string }) => {
+      const company_id = await getCompanyId();
       const { data, error } = await supabase
         .from('categories')
-        .insert(category)
+        .insert({ ...category, company_id })
         .select()
         .single();
       

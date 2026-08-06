@@ -14,6 +14,7 @@ import {
   Clock
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { getCompanyId } from '@/utils/tenant';
 
 interface BackupInfo {
   date: string;
@@ -128,6 +129,7 @@ export function BackupManager() {
       }
 
       const tables = Object.keys(backup.data);
+      const company_id = await getCompanyId();
       
       for (const table of tables) {
         const records = backup.data[table];
@@ -139,7 +141,7 @@ export function BackupManager() {
           // Inserir dados do backup
           const { error } = await supabase
             .from(table as any)
-            .insert(records);
+            .insert(records.map((r: any) => ({ ...r, company_id })));
 
           if (error) {
             throw new Error(`Erro ao restaurar tabela ${table}: ${error.message}`);

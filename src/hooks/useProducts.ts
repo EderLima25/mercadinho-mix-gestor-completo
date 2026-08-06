@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getCompanyId } from '@/utils/tenant';
 import { useToast } from '@/hooks/use-toast';
 import { LocalCache } from '@/utils/localCache';
 import { useOffline } from '@/hooks/useOffline';
@@ -99,9 +100,10 @@ export function useProducts() {
   const addProduct = useMutation({
     mutationFn: async (product: ProductInsert) => {
       if (isOnline) {
+        const company_id = await getCompanyId();
         const { data, error } = await supabase
           .from('products')
-          .insert(product)
+          .insert({ ...product, company_id })
           .select('*, category:categories(*)')
           .single();
         
@@ -260,9 +262,10 @@ export function useProducts() {
   const importProducts = useMutation({
     mutationFn: async (productsToImport: ProductInsert[]) => {
       if (isOnline) {
+        const company_id = await getCompanyId();
         const { error } = await supabase
           .from('products')
-          .upsert(productsToImport, { onConflict: 'barcode' });
+          .upsert(productsToImport.map(p => ({ ...p, company_id })), { onConflict: 'barcode' });
         
         if (error) throw error;
       } else {

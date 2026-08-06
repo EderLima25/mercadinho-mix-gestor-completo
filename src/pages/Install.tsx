@@ -86,7 +86,7 @@ export default function Install() {
             <span>Voltar</span>
           </Link>
           <div className="flex items-center gap-2">
-            <img src="/Mercadinho.jpg" alt="Logo" className="h-8 w-8 rounded-lg" />
+            <img src="/logo-mercadopdv.png" alt="Logo" className="h-8 w-8 rounded-lg" />
             <span className="font-semibold text-lg">MercadoPDV</span>
           </div>
           <div className="w-16" />

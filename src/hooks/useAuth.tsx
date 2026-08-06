@@ -3,14 +3,17 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { OfflineAuth } from '@/utils/offlineAuth';
+import { getCompanyId, setCachedCompanyId, getCachedCompanyId } from '@/utils/tenant';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
   isOfflineMode: boolean;
+  companyId: string | null;
+  companyName: string | null;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, fullName: string, companyName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   createOfflineUser: () => void;
 }
@@ -22,6 +25,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const [companyId, setCompanyId] = useState<string | null>(getCachedCompanyId());
+  const [companyName, setCompanyName] = useState<string | null>(null);
   const { toast } = useToast();
   const offlineAuth = OfflineAuth.getInstance();
 
@@ -68,6 +73,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initAuth();
   }, []);
+
+  // Load the tenant (company) of the signed-in user
+  useEffect(() => {
+    let active = true;
+    const loadCompany = async () => {
+      if (!user) {
+        setCompanyId(null);
+        setCompanyName(null);
+        return;
+      }
+      try {
+        const id = await getCompanyId();
+        if (!active) return;
+        setCompanyId(id);
+        const { data } = await supabase
+          .from('companies')
+          .select('name')
+          .eq('id', id)
+          .maybeSingle();
+        if (active) setCompanyName(data?.name ?? null);
+      } catch {
+        // offline or profile not ready yet
+      }
+    };
+    loadCompany();
+    return () => { active = false; };
+  }, [user]);
 
   // Listen for online/offline changes
   useEffect(() => {
@@ -155,7 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = async (email: string, password: string, fullName: string, companyName: string) => {
     if (!navigator.onLine) {
       const error = new Error('Cadastro requer conexão com internet');
       toast({
@@ -175,6 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         emailRedirectTo: redirectUrl,
         data: {
           full_name: fullName,
+          company_name: companyName,
         },
       },
     });
@@ -206,6 +239,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // Clear offline session
     offlineAuth.clearSession();
+    setCachedCompanyId(null);
+    setCompanyId(null);
+    setCompanyName(null);
     setUser(null);
     setSession(null);
     setIsOfflineMode(false);
@@ -230,6 +266,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session, 
       loading, 
       isOfflineMode,
+      companyId,
+      companyName,
       signIn, 
       signUp, 
       signOut,

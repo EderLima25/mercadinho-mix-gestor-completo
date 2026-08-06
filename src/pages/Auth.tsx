@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Store, Mail, Lock, User, LogIn, UserPlus } from 'lucide-react';
+import { Store, Mail, Lock, User, LogIn, UserPlus, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +16,7 @@ const loginSchema = z.object({
 
 const signupSchema = loginSchema.extend({
   fullName: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
+  companyName: z.string().min(2, 'Informe o nome da empresa'),
 });
 
 export default function Auth() {
@@ -23,6 +24,7 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   
@@ -60,7 +62,7 @@ export default function Auth() {
           navigate('/');
         }
       } else {
-        const result = signupSchema.safeParse({ email, password, fullName });
+        const result = signupSchema.safeParse({ email, password, fullName, companyName });
         if (!result.success) {
           const fieldErrors: Record<string, string> = {};
           result.error.errors.forEach(err => {
@@ -73,12 +75,13 @@ export default function Auth() {
           return;
         }
 
-        const { error } = await signUp(email, password, fullName);
+        const { error } = await signUp(email, password, fullName, companyName);
         if (!error) {
           setIsLogin(true);
           setEmail('');
           setPassword('');
           setFullName('');
+          setCompanyName('');
         }
       }
     } finally {
@@ -98,7 +101,7 @@ export default function Auth() {
           <div className="flex flex-col items-center mb-8">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl overflow-hidden bg-white shadow-glow mb-4">
               <img 
-                src="/Mercadinho.jpg" 
+                src="/logo-mercadopdv.png" 
                 alt="MercadoPDV" 
                 className="h-full w-full object-cover"
               />
@@ -131,6 +134,29 @@ export default function Auth() {
                 </div>
                 {errors.fullName && (
                   <p className="text-sm text-destructive">{errors.fullName}</p>
+                )}
+              </div>
+            )}
+
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label htmlFor="companyName">Nome da Empresa</Label>
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="companyName"
+                    type="text"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="Nome do seu mercado"
+                    className="pl-10"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Sua empresa terá dados totalmente separados de outras empresas.
+                </p>
+                {errors.companyName && (
+                  <p className="text-sm text-destructive">{errors.companyName}</p>
                 )}
               </div>
             )}

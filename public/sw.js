@@ -5,7 +5,7 @@ const STATIC_CACHE = 'mercadinho-static-v6';
 const staticUrlsToCache = [
   '/',
   '/manifest.json',
-  '/Mercadinho.jpg',
+  '/logo-mercadopdv.png',
   '/favicon.ico'
 ];
 

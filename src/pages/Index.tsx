@@ -135,7 +135,7 @@ const Index = () => {
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg overflow-hidden bg-white shadow-sm">
                 <img 
-                  src="/Mercadinho.jpg" 
+                  src="/logo-mercadopdv.png" 
                   alt="MercadoPDV" 
                   className="h-full w-full object-cover"
                 />

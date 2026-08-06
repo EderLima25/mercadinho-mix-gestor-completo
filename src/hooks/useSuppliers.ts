@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getCompanyId } from '@/utils/tenant';
 import { useToast } from '@/hooks/use-toast';
 
 export interface Supplier {
@@ -57,9 +58,10 @@ export function useSuppliers() {
 
   const addSupplier = useMutation({
     mutationFn: async (supplier: SupplierInsert) => {
+      const company_id = await getCompanyId();
       const { data, error } = await supabase
         .from('suppliers' as any)
-        .insert(supplier)
+        .insert({ ...supplier, company_id })
         .select()
         .single();
       
