@@ -1,6 +1,6 @@
 {
-  "name": "Mercadinho Mix - Sistema de PDV",
-  "short_name": "Mercadinho Mix",
+  "name": "MercadoPDV - Sistema de PDV",
+  "short_name": "MercadoPDV",
   "description": "Sistema completo de Ponto de Venda e controle de estoque",
   "start_url": "/",
   "display": "standalone",

@@ -29,7 +29,7 @@ export function Dashboard() {
       >
         <h1 className="text-3xl font-bold">Bom dia! 👋</h1>
         <p className="mt-1 text-muted-foreground">
-          Bem-vindo ao Mercadinho Mix. Aqui está o resumo do seu negócio.
+          Bem-vindo ao MercadoPDV. Aqui está o resumo do seu negócio.
         </p>
       </motion.div>
 

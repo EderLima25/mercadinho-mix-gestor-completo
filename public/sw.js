@@ -185,7 +185,7 @@ self.addEventListener('fetch', (event) => {
                   <!DOCTYPE html>
                   <html>
                     <head>
-                      <title>Mercadinho Mix - Offline</title>
+                      <title>MercadoPDV - Offline</title>
                       <meta charset="utf-8">
                       <meta name="viewport" content="width=device-width, initial-scale=1">
                       <style>
@@ -194,7 +194,7 @@ self.addEventListener('fetch', (event) => {
                       </style>
                     </head>
                     <body>
-                      <h1>Mercadinho Mix</h1>
+                      <h1>MercadoPDV</h1>
                       <div class="offline-message">
                         <p>Aplicativo funcionando offline</p>
                         <p>Algumas funcionalidades podem estar limitadas</p>

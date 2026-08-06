@@ -87,7 +87,7 @@ export default function Install() {
           </Link>
           <div className="flex items-center gap-2">
             <img src="/Mercadinho.jpg" alt="Logo" className="h-8 w-8 rounded-lg" />
-            <span className="font-semibold text-lg">Mercadinho Mix</span>
+            <span className="font-semibold text-lg">MercadoPDV</span>
           </div>
           <div className="w-16" />
         </div>
@@ -101,7 +101,7 @@ export default function Install() {
             <span className="text-sm font-medium">Instale o App</span>
           </div>
           <h1 className="text-3xl md:text-4xl font-bold mb-4">
-            Instale o Mercadinho Mix
+            Instale o MercadoPDV
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Tenha acesso rápido ao sistema de PDV direto na tela inicial do seu dispositivo. 
@@ -119,7 +119,7 @@ export default function Install() {
               <div>
                 <h3 className="font-semibold text-green-800 dark:text-green-200">App já instalado!</h3>
                 <p className="text-green-600 dark:text-green-400 text-sm">
-                  O Mercadinho Mix já está instalado no seu dispositivo.
+                  O MercadoPDV já está instalado no seu dispositivo.
                 </p>
               </div>
             </CardContent>

@@ -105,7 +105,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
           <div className="flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden bg-white">
             <img 
               src="/Mercadinho.jpg" 
-              alt="Mercadinho Mix" 
+              alt="MercadoPDV" 
               className="h-full w-full object-cover"
             />
           </div>
@@ -115,7 +115,7 @@ export function Sidebar({ currentView, onViewChange }: SidebarProps) {
               animate={{ opacity: 1 }}
               className="flex flex-col"
             >
-              <span className="text-lg font-bold text-white">Mercadinho</span>
+              <span className="text-lg font-bold text-white">MercadoPDV</span>
               <span className="text-xs font-medium text-orange-400">Mix</span>
             </motion.div>
           )}

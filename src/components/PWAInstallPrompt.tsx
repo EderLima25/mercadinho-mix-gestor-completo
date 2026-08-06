@@ -31,7 +31,7 @@ export function PWAInstallPrompt() {
       setDeferredPrompt(null);
       toast({
         title: 'App instalado!',
-        description: 'Mercadinho Mix foi instalado com sucesso.',
+        description: 'MercadoPDV foi instalado com sucesso.',
       });
     };
 
@@ -96,7 +96,7 @@ export function PWAInstallPrompt() {
     } else if (isAndroid) {
       instructions = 'No Chrome: toque no menu (⋮) e selecione "Adicionar à tela inicial"';
     } else {
-      instructions = 'No Chrome/Edge: clique no ícone de instalação na barra de endereços ou vá no menu > "Instalar Mercadinho Mix"';
+      instructions = 'No Chrome/Edge: clique no ícone de instalação na barra de endereços ou vá no menu > "Instalar MercadoPDV"';
     }
     
     toast({
@@ -121,7 +121,7 @@ export function PWAInstallPrompt() {
               <Download className="h-6 w-6 text-primary" />
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-sm">Instalar Mercadinho Mix</h3>
+              <h3 className="font-semibold text-sm">Instalar MercadoPDV</h3>
               <p className="text-xs text-gray-600 mt-1">
                 Instale o app para acesso rápido e funcionalidade offline.
               </p>

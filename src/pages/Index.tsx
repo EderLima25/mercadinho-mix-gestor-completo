@@ -72,7 +72,7 @@ const Index = () => {
     } else if (isAndroid) {
       instructions = 'No Chrome: toque no menu (⋮) e selecione "Adicionar à tela inicial"';
     } else if (isChrome || isEdge) {
-      instructions = 'Procure o ícone de instalação (⬇) na barra de endereços (lado direito) ou vá no menu > "Instalar Mercadinho Mix"';
+      instructions = 'Procure o ícone de instalação (⬇) na barra de endereços (lado direito) ou vá no menu > "Instalar MercadoPDV"';
     } else {
       instructions = 'Use Chrome ou Edge para melhor suporte a PWA. No Firefox: Menu > "Instalar este site como app"';
     }
@@ -136,7 +136,7 @@ const Index = () => {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg overflow-hidden bg-white shadow-sm">
                 <img 
                   src="/Mercadinho.jpg" 
-                  alt="Mercadinho Mix" 
+                  alt="MercadoPDV" 
                   className="h-full w-full object-cover"
                 />
               </div>
