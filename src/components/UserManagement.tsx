@@ -37,6 +37,7 @@ import {
   ShoppingCart
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { getCompanyId } from '@/utils/tenant';
 import { useToast } from '@/hooks/use-toast';
 
 interface UserProfile {
@@ -117,7 +118,7 @@ export function UserManagement() {
       if (action === 'add') {
         const { error } = await supabase
           .from('user_roles')
-          .insert({ user_id: userId, role: role as any });
+          .insert({ user_id: userId, role: role as any, company_id: await getCompanyId() });
         
         if (error) throw error;
       } else {

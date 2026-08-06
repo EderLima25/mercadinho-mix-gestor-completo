@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { getCompanyId } from '@/utils/tenant';
 import { useCategories } from '@/hooks/useCategories';
 import { useQueryClient } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
@@ -178,6 +179,7 @@ export function ExcelImporter() {
       }
 
       // Importar em lotes menores para evitar timeout
+      const company_id = await getCompanyId();
       const BATCH_SIZE = 50;
       let successCount = 0;
       let errorCount = 0;
@@ -196,7 +198,7 @@ export function ExcelImporter() {
           // Usar upsert para atualizar se já existe
           const { error } = await supabase
             .from('products')
-            .upsert(batch as any, { 
+            .upsert(batch.map(p => ({ ...p, company_id })) as any, { 
               onConflict: 'barcode',
               ignoreDuplicates: false
             });

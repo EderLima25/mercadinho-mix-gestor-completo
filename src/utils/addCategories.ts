@@ -62,6 +62,7 @@ const newCategories = [
 ];
 
 export async function addCategories() {
+  const company_id = await getCompanyId();
   console.log('Iniciando adição de categorias...');
   
   try {
