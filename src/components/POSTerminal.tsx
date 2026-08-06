@@ -984,7 +984,19 @@ export function POSTerminal() {
             <>
               {/* Seleção de Forma de Pagamento */}
               <Card className="p-3">
-                <h3 className="mb-3 font-semibold text-sm">Forma de Pagamento</h3>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h3 className="font-semibold text-sm">Forma de Pagamento</h3>
+                  <Button
+                    variant={splitMode ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setSplitMode(!splitMode)}
+                  >
+                    <Split className="mr-1 h-3 w-3" />
+                    Combinar
+                  </Button>
+                </div>
+                {!splitMode ? (
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant={selectedPaymentMethod === 'cash' ? 'default' : 'outline'}
@@ -1023,6 +1035,84 @@ export function POSTerminal() {
                     <span className="text-xs">PIX</span>
                   </Button>
                 </div>
+                ) : (
+                  <div className="space-y-3">
+                    {splitPayments.map((p, index) => (
+                      <div key={p.id} className="space-y-1 rounded-lg border p-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            Pagamento {index + 1}
+                          </span>
+                          {splitPayments.length > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-destructive"
+                              onClick={() => removeSplitPayment(p.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-4 gap-1">
+                          {(['cash', 'credit', 'debit', 'pix'] as const).map((m) => (
+                            <Button
+                              key={m}
+                              variant={p.method === m ? 'default' : 'outline'}
+                              size="sm"
+                              className="h-7 px-1 text-[10px]"
+                              onClick={() => updateSplitPayment(p.id, { method: m })}
+                            >
+                              {PAYMENT_LABELS[m]}
+                            </Button>
+                          ))}
+                        </div>
+                        <div className="flex gap-1">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            value={p.amount}
+                            onChange={(e) => updateSplitPayment(p.id, { amount: e.target.value })}
+                            className="h-8"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => fillRemaining(p.id)}
+                          >
+                            Restante
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <Button variant="outline" size="sm" className="w-full h-8" onClick={addSplitPayment}>
+                      <Plus className="mr-1 h-3 w-3" />
+                      Adicionar pagamento
+                    </Button>
+
+                    <div className="space-y-1 rounded-lg bg-muted p-2 text-sm">
+                      <div className="flex justify-between">
+                        <span>Total:</span>
+                        <span>R$ {finalTotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Pago:</span>
+                        <span>R$ {splitPaid.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold border-t pt-1">
+                        <span>{splitPaid > finalTotal ? 'Troco:' : 'Falta:'}</span>
+                        <span className={splitPaid >= finalTotal ? 'text-green-600' : 'text-red-600'}>
+                          R$ {(splitPaid > finalTotal ? splitChange : splitRemaining).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
               </Card>
 
               {/* Desconto */}
