@@ -40,9 +40,15 @@ export function POSTerminal() {
   const [showPixModal, setShowPixModal] = useState(false);
   const [unknownBarcode, setUnknownBarcode] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'cash' | 'credit' | 'debit' | 'pix'>('cash');
+  const [splitMode, setSplitMode] = useState(false);
+  const [splitPayments, setSplitPayments] = useState<{ id: string; method: 'cash' | 'credit' | 'debit' | 'pix'; amount: string }[]>([
+    { id: 'p1', method: 'cash', amount: '' },
+    { id: 'p2', method: 'pix', amount: '' },
+  ]);
   const [discount, setDiscount] = useState(0);
   const [discountType, setDiscountType] = useState<'percentage' | 'value'>('percentage');
   const [receivedAmount, setReceivedAmount] = useState('');
+
   const [isConnectedToPrinter, setIsConnectedToPrinter] = useState(false);
   const [isScannerActive, setIsScannerActive] = useState(false);
   const [weightInput, setWeightInput] = useState<{[key: string]: string}>({});
