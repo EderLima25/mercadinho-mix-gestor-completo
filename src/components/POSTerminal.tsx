@@ -364,6 +364,137 @@ export function POSTerminal() {
   const receivedValue = parseFloat(receivedAmount) || 0;
   const change = receivedValue - finalTotal;
 
+  // ===== Pagamento combinado =====
+  const PAYMENT_LABELS: Record<string, string> = {
+    cash: 'Dinheiro',
+    credit: 'Crédito',
+    debit: 'Débito',
+    pix: 'PIX',
+  };
+
+  const activeSplitPayments = splitPayments.filter(p => (parseFloat(p.amount) || 0) > 0);
+  const splitPaid = activeSplitPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+  const splitRemaining = Math.max(0, finalTotal - splitPaid);
+  const splitCashPaid = activeSplitPayments
+    .filter(p => p.method === 'cash')
+    .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+  const splitChange = Math.max(0, splitPaid - finalTotal);
+  const splitIsValid = splitPaid >= finalTotal - 0.001 && activeSplitPayments.length > 0
+    && (splitPaid - finalTotal <= splitCashPaid + 0.001);
+
+  const updateSplitPayment = (id: string, patch: Partial<{ method: 'cash' | 'credit' | 'debit' | 'pix'; amount: string }>) => {
+    setSplitPayments(prev => prev.map(p => (p.id === id ? { ...p, ...patch } : p)));
+  };
+
+  const addSplitPayment = () => {
+    setSplitPayments(prev => [
+      ...prev,
+      { id: `p${Date.now()}`, method: 'cash', amount: '' },
+    ]);
+  };
+
+  const removeSplitPayment = (id: string) => {
+    setSplitPayments(prev => (prev.length > 1 ? prev.filter(p => p.id !== id) : prev));
+  };
+
+  const fillRemaining = (id: string) => {
+    const others = splitPayments
+      .filter(p => p.id !== id)
+      .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+    updateSplitPayment(id, { amount: Math.max(0, finalTotal - others).toFixed(2) });
+  };
+
+  const resetAfterSale = () => {
+    setCart([]);
+    setDiscount(0);
+    setReceivedAmount('');
+    setSplitPayments([
+      { id: 'p1', method: 'cash', amount: '' },
+      { id: 'p2', method: 'pix', amount: '' },
+    ]);
+  };
+
+  const splitDescription = activeSplitPayments
+    .map(p => `${PAYMENT_LABELS[p.method]}: R$ ${(parseFloat(p.amount) || 0).toFixed(2)}`)
+    .join(' + ');
+
+  const handleSplitPayment = () => {
+    if (cart.length === 0) return;
+
+    if (!splitIsValid) {
+      toast({
+        title: 'Pagamentos incompletos',
+        description: splitPaid < finalTotal
+          ? `Faltam R$ ${splitRemaining.toFixed(2)} para completar o total.`
+          : 'Somente pagamento em dinheiro pode gerar troco.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    for (const item of cart) {
+      if (item.quantity > item.product.stock) {
+        toast({
+          title: 'Estoque insuficiente',
+          description: `${item.product.name}: disponível ${item.product.stock} ${item.product.unit}`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    const items = cart.map(item => ({
+      product_id: item.product.id,
+      quantity: item.quantity,
+      unit_price: Number(item.product.price),
+      subtotal: item.subtotal,
+    }));
+
+    const receiptData: ReceiptData = {
+      items: cart.map(item => ({
+        name: item.product.name,
+        quantity: item.isWeightBased ? parseFloat(item.quantity.toFixed(2)) : item.quantity,
+        unit: item.product.unit,
+        unitPrice: Number(item.product.price),
+        subtotal: item.subtotal,
+        isWeightBased: item.isWeightBased,
+      })),
+      subtotal: total,
+      discount: discountAmount,
+      total: finalTotal,
+      paymentMethod: `Combinado (${splitDescription})`,
+      receivedAmount: splitPaid,
+      change: splitChange,
+      timestamp: new Date(),
+    };
+
+    createSale.mutate({
+      items,
+      total: finalTotal,
+      paymentMethod: `mixed: ${splitDescription}`,
+    }, {
+      onSuccess: () => {
+        resetAfterSale();
+        setCurrentReceiptData(receiptData);
+        setShowReceiptModal(true);
+        toast({
+          title: 'Venda finalizada!',
+          description: splitChange > 0
+            ? `Pagamento combinado. Troco: R$ ${splitChange.toFixed(2)}`
+            : 'Pagamento combinado registrado.',
+        });
+      },
+      onError: (error) => {
+        toast({
+          title: 'Erro ao processar venda',
+          description: error.message,
+          variant: 'destructive',
+        });
+      },
+    });
+  };
+
+
   // Configurar scanner de código de barras
   useEffect(() => {
     const handleBarcodeScan = async (barcode: string) => {
