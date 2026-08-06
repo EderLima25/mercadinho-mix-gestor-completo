@@ -138,6 +138,29 @@ export default function Auth() {
               </div>
             )}
 
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label htmlFor="companyName">Nome da Empresa</Label>
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="companyName"
+                    type="text"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="Nome do seu mercado"
+                    className="pl-10"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Sua empresa terá dados totalmente separados de outras empresas.
+                </p>
+                {errors.companyName && (
+                  <p className="text-sm text-destructive">{errors.companyName}</p>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <div className="relative">
