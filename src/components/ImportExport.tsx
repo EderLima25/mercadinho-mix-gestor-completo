@@ -165,7 +165,7 @@ export function ImportExport() {
 
   return (
     <div className="space-y-6">
-      {/* Importador Excel específico para o formato do Mercadinho Mix */}
+      {/* Importador Excel específico para o formato do MercadoPDV */}
       <ExcelImporter />
 
       <div className="grid gap-6 lg:grid-cols-2">

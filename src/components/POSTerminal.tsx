@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, QrCode, Printer, Scan } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, QrCode, Printer, Scan, Split } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -40,9 +40,15 @@ export function POSTerminal() {
   const [showPixModal, setShowPixModal] = useState(false);
   const [unknownBarcode, setUnknownBarcode] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'cash' | 'credit' | 'debit' | 'pix'>('cash');
+  const [splitMode, setSplitMode] = useState(false);
+  const [splitPayments, setSplitPayments] = useState<{ id: string; method: 'cash' | 'credit' | 'debit' | 'pix'; amount: string }[]>([
+    { id: 'p1', method: 'cash', amount: '' },
+    { id: 'p2', method: 'pix', amount: '' },
+  ]);
   const [discount, setDiscount] = useState(0);
   const [discountType, setDiscountType] = useState<'percentage' | 'value'>('percentage');
   const [receivedAmount, setReceivedAmount] = useState('');
+
   const [isConnectedToPrinter, setIsConnectedToPrinter] = useState(false);
   const [isScannerActive, setIsScannerActive] = useState(false);
   const [weightInput, setWeightInput] = useState<{[key: string]: string}>({});
@@ -357,6 +363,137 @@ export function POSTerminal() {
   // Calcular troco
   const receivedValue = parseFloat(receivedAmount) || 0;
   const change = receivedValue - finalTotal;
+
+  // ===== Pagamento combinado =====
+  const PAYMENT_LABELS: Record<string, string> = {
+    cash: 'Dinheiro',
+    credit: 'Crédito',
+    debit: 'Débito',
+    pix: 'PIX',
+  };
+
+  const activeSplitPayments = splitPayments.filter(p => (parseFloat(p.amount) || 0) > 0);
+  const splitPaid = activeSplitPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+  const splitRemaining = Math.max(0, finalTotal - splitPaid);
+  const splitCashPaid = activeSplitPayments
+    .filter(p => p.method === 'cash')
+    .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+  const splitChange = Math.max(0, splitPaid - finalTotal);
+  const splitIsValid = splitPaid >= finalTotal - 0.001 && activeSplitPayments.length > 0
+    && (splitPaid - finalTotal <= splitCashPaid + 0.001);
+
+  const updateSplitPayment = (id: string, patch: Partial<{ method: 'cash' | 'credit' | 'debit' | 'pix'; amount: string }>) => {
+    setSplitPayments(prev => prev.map(p => (p.id === id ? { ...p, ...patch } : p)));
+  };
+
+  const addSplitPayment = () => {
+    setSplitPayments(prev => [
+      ...prev,
+      { id: `p${Date.now()}`, method: 'cash', amount: '' },
+    ]);
+  };
+
+  const removeSplitPayment = (id: string) => {
+    setSplitPayments(prev => (prev.length > 1 ? prev.filter(p => p.id !== id) : prev));
+  };
+
+  const fillRemaining = (id: string) => {
+    const others = splitPayments
+      .filter(p => p.id !== id)
+      .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+    updateSplitPayment(id, { amount: Math.max(0, finalTotal - others).toFixed(2) });
+  };
+
+  const resetAfterSale = () => {
+    setCart([]);
+    setDiscount(0);
+    setReceivedAmount('');
+    setSplitPayments([
+      { id: 'p1', method: 'cash', amount: '' },
+      { id: 'p2', method: 'pix', amount: '' },
+    ]);
+  };
+
+  const splitDescription = activeSplitPayments
+    .map(p => `${PAYMENT_LABELS[p.method]}: R$ ${(parseFloat(p.amount) || 0).toFixed(2)}`)
+    .join(' + ');
+
+  const handleSplitPayment = () => {
+    if (cart.length === 0) return;
+
+    if (!splitIsValid) {
+      toast({
+        title: 'Pagamentos incompletos',
+        description: splitPaid < finalTotal
+          ? `Faltam R$ ${splitRemaining.toFixed(2)} para completar o total.`
+          : 'Somente pagamento em dinheiro pode gerar troco.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    for (const item of cart) {
+      if (item.quantity > item.product.stock) {
+        toast({
+          title: 'Estoque insuficiente',
+          description: `${item.product.name}: disponível ${item.product.stock} ${item.product.unit}`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    const items = cart.map(item => ({
+      product_id: item.product.id,
+      quantity: item.quantity,
+      unit_price: Number(item.product.price),
+      subtotal: item.subtotal,
+    }));
+
+    const receiptData: ReceiptData = {
+      items: cart.map(item => ({
+        name: item.product.name,
+        quantity: item.isWeightBased ? parseFloat(item.quantity.toFixed(2)) : item.quantity,
+        unit: item.product.unit,
+        unitPrice: Number(item.product.price),
+        subtotal: item.subtotal,
+        isWeightBased: item.isWeightBased,
+      })),
+      subtotal: total,
+      discount: discountAmount,
+      total: finalTotal,
+      paymentMethod: `Combinado (${splitDescription})`,
+      receivedAmount: splitPaid,
+      change: splitChange,
+      timestamp: new Date(),
+    };
+
+    createSale.mutate({
+      items,
+      total: finalTotal,
+      paymentMethod: `mixed: ${splitDescription}`,
+    }, {
+      onSuccess: () => {
+        resetAfterSale();
+        setCurrentReceiptData(receiptData);
+        setShowReceiptModal(true);
+        toast({
+          title: 'Venda finalizada!',
+          description: splitChange > 0
+            ? `Pagamento combinado. Troco: R$ ${splitChange.toFixed(2)}`
+            : 'Pagamento combinado registrado.',
+        });
+      },
+      onError: (error) => {
+        toast({
+          title: 'Erro ao processar venda',
+          description: error.message,
+          variant: 'destructive',
+        });
+      },
+    });
+  };
+
 
   // Configurar scanner de código de barras
   useEffect(() => {
@@ -847,7 +984,19 @@ export function POSTerminal() {
             <>
               {/* Seleção de Forma de Pagamento */}
               <Card className="p-3">
-                <h3 className="mb-3 font-semibold text-sm">Forma de Pagamento</h3>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h3 className="font-semibold text-sm">Forma de Pagamento</h3>
+                  <Button
+                    variant={splitMode ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setSplitMode(!splitMode)}
+                  >
+                    <Split className="mr-1 h-3 w-3" />
+                    Combinar
+                  </Button>
+                </div>
+                {!splitMode ? (
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant={selectedPaymentMethod === 'cash' ? 'default' : 'outline'}
@@ -886,6 +1035,84 @@ export function POSTerminal() {
                     <span className="text-xs">PIX</span>
                   </Button>
                 </div>
+                ) : (
+                  <div className="space-y-3">
+                    {splitPayments.map((p, index) => (
+                      <div key={p.id} className="space-y-1 rounded-lg border p-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            Pagamento {index + 1}
+                          </span>
+                          {splitPayments.length > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-destructive"
+                              onClick={() => removeSplitPayment(p.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-4 gap-1">
+                          {(['cash', 'credit', 'debit', 'pix'] as const).map((m) => (
+                            <Button
+                              key={m}
+                              variant={p.method === m ? 'default' : 'outline'}
+                              size="sm"
+                              className="h-7 px-1 text-[10px]"
+                              onClick={() => updateSplitPayment(p.id, { method: m })}
+                            >
+                              {PAYMENT_LABELS[m]}
+                            </Button>
+                          ))}
+                        </div>
+                        <div className="flex gap-1">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            value={p.amount}
+                            onChange={(e) => updateSplitPayment(p.id, { amount: e.target.value })}
+                            className="h-8"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={() => fillRemaining(p.id)}
+                          >
+                            Restante
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <Button variant="outline" size="sm" className="w-full h-8" onClick={addSplitPayment}>
+                      <Plus className="mr-1 h-3 w-3" />
+                      Adicionar pagamento
+                    </Button>
+
+                    <div className="space-y-1 rounded-lg bg-muted p-2 text-sm">
+                      <div className="flex justify-between">
+                        <span>Total:</span>
+                        <span>R$ {finalTotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Pago:</span>
+                        <span>R$ {splitPaid.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold border-t pt-1">
+                        <span>{splitPaid > finalTotal ? 'Troco:' : 'Falta:'}</span>
+                        <span className={splitPaid >= finalTotal ? 'text-green-600' : 'text-red-600'}>
+                          R$ {(splitPaid > finalTotal ? splitChange : splitRemaining).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
               </Card>
 
               {/* Desconto */}
@@ -927,7 +1154,7 @@ export function POSTerminal() {
               </Card>
 
               {/* Valor Recebido e Troco (apenas para dinheiro) */}
-              {selectedPaymentMethod === 'cash' && (
+              {!splitMode && selectedPaymentMethod === 'cash' && (
                 <Card className="p-3">
                   <h3 className="mb-3 font-semibold text-sm">Pagamento em Dinheiro</h3>
                   <div className="space-y-2">
@@ -967,13 +1194,23 @@ export function POSTerminal() {
 
               {/* Botão Finalizar Venda */}
               <Button
-                onClick={handlePayment}
-                disabled={createSale.isPending || (selectedPaymentMethod === 'cash' && receivedValue < finalTotal)}
+                onClick={splitMode ? handleSplitPayment : handlePayment}
+                disabled={
+                  createSale.isPending ||
+                  (splitMode
+                    ? !splitIsValid
+                    : selectedPaymentMethod === 'cash' && receivedValue < finalTotal)
+                }
                 className="w-full h-12 text-base font-bold"
                 size="lg"
               >
-                {createSale.isPending ? 'Processando...' : 'Finalizar Venda'}
+                {createSale.isPending
+                  ? 'Processando...'
+                  : splitMode
+                    ? 'Finalizar Venda (Combinado)'
+                    : 'Finalizar Venda'}
               </Button>
+
             </>
           )}
 
@@ -1137,7 +1374,7 @@ export function POSTerminal() {
         open={showReceiptModal}
         onOpenChange={setShowReceiptModal}
         receiptData={currentReceiptData}
-        storeName={settings.store.name || 'MERCADINHO MIX'}
+        storeName={settings.store.name || 'MERCADOPDV'}
         onPrint={handlePrintReceipt}
         isPrinterConnected={isConnectedToPrinter}
       />

@@ -259,7 +259,7 @@ export class ThermalPrinter {
   }
 
   // Imprimir cupom fiscal
-  public async printReceipt(data: ReceiptData, storeName: string = 'MERCADINHO MIX'): Promise<boolean> {
+  public async printReceipt(data: ReceiptData, storeName: string = 'MERCADOPDV'): Promise<boolean> {
     try {
       if (!this.isConnected()) {
         // Fallback para console se não conectado
@@ -359,7 +359,7 @@ export class ThermalPrinter {
   }
 
   // Fallback para console quando impressora não está conectada
-  private printToConsole(data: ReceiptData, storeName: string = 'MERCADINHO MIX'): void {
+  private printToConsole(data: ReceiptData, storeName: string = 'MERCADOPDV'): void {
     console.log('=== CUPOM FISCAL ===');
     console.log(storeName);
     console.log('Sistema de Gestão Completo');

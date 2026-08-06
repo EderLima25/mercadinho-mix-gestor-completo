@@ -61,7 +61,7 @@ export interface AppSettings {
 
 const defaultSettings: AppSettings = {
   store: {
-    name: 'Mercadinho Mix',
+    name: 'MercadoPDV',
     address: 'Rua das Flores, 123 - Centro',
     phone: '(11) 99999-9999',
     email: 'contato@mercadinhomix.com.br',
@@ -71,7 +71,7 @@ const defaultSettings: AppSettings = {
     enabled: false,
     pixKey: '',
     pixKeyType: 'cpf',
-    merchantName: 'Mercadinho Mix',
+    merchantName: 'MercadoPDV',
     merchantCity: 'Sao Paulo',
   },
   printer: {

@@ -19,7 +19,7 @@ export function ReceiptPreviewModal({
   open,
   onOpenChange,
   receiptData,
-  storeName = 'MERCADINHO MIX',
+  storeName = 'MERCADOPDV',
   onPrint,
   isPrinterConnected = false,
 }: ReceiptPreviewModalProps) {

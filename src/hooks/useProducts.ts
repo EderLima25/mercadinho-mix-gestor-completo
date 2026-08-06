@@ -140,7 +140,7 @@ export function useProducts() {
   });
 
   const updateProduct = useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Product> & { id: string }) => {
+    mutationFn: async ({ id, category, ...updates }: Partial<Product> & { id: string }) => {
       if (isOnline) {
         const { data, error } = await supabase
           .from('products')

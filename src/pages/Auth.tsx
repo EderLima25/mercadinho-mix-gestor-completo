@@ -99,11 +99,11 @@ export default function Auth() {
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl overflow-hidden bg-white shadow-glow mb-4">
               <img 
                 src="/Mercadinho.jpg" 
-                alt="Mercadinho Mix" 
+                alt="MercadoPDV" 
                 className="h-full w-full object-cover"
               />
             </div>
-            <h1 className="text-2xl font-bold">Mercadinho Mix</h1>
+            <h1 className="text-2xl font-bold">MercadoPDV</h1>
             <p className="text-muted-foreground">
               {isLogin ? 'Entre na sua conta' : 'Crie sua conta'}
               {!navigator.onLine && (

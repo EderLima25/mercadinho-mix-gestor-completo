@@ -87,7 +87,7 @@ export function Settings() {
   
   // Estados das configurações
   const [storeSettings, setStoreSettings] = useState<StoreSettings>({
-    name: 'Mercadinho Mix',
+    name: 'MercadoPDV',
     address: 'Rua das Flores, 123 - Centro',
     phone: '(11) 99999-9999',
     email: 'contato@mercadinhomix.com.br',
@@ -98,7 +98,7 @@ export function Settings() {
     enabled: false,
     pixKey: '',
     pixKeyType: 'cpf',
-    merchantName: 'Mercadinho Mix',
+    merchantName: 'MercadoPDV',
     merchantCity: 'Sao Paulo',
   });
 
@@ -194,7 +194,7 @@ export function Settings() {
       
       // Resetar estados
       setStoreSettings({
-        name: 'Mercadinho Mix',
+        name: 'MercadoPDV',
         address: 'Rua das Flores, 123 - Centro',
         phone: '(11) 99999-9999',
         email: 'contato@mercadinhomix.com.br',
@@ -205,7 +205,7 @@ export function Settings() {
         enabled: false,
         pixKey: '',
         pixKeyType: 'cpf',
-        merchantName: 'Mercadinho Mix',
+        merchantName: 'MercadoPDV',
         merchantCity: 'Sao Paulo',
       });
       
@@ -787,7 +787,7 @@ export function Settings() {
             <CardContent className="space-y-4">
               <div className="text-center space-y-4">
                 <div>
-                  <h3 className="text-2xl font-bold">Mercadinho Mix</h3>
+                  <h3 className="text-2xl font-bold">MercadoPDV</h3>
                   <p className="text-muted-foreground">Sistema de Gestão Completo</p>
                 </div>
                 
