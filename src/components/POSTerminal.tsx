@@ -1374,7 +1374,7 @@ export function POSTerminal() {
         open={showReceiptModal}
         onOpenChange={setShowReceiptModal}
         receiptData={currentReceiptData}
-        storeName={settings.store.name || 'MERCADINHO MIX'}
+        storeName={settings.store.name || 'MERCADOPDV'}
         onPrint={handlePrintReceipt}
         isPrinterConnected={isConnectedToPrinter}
       />
