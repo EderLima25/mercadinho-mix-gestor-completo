@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getCompanyId } from '@/utils/tenant';
 
 interface OfflineAction {
   id: string;
@@ -66,12 +67,14 @@ export function useOffline() {
   }, []);
 
   const processSaleSync = async (saleData: any) => {
+    const company_id = await getCompanyId();
     const { data: sale, error: saleError } = await supabase
       .from('sales')
       .insert({
         user_id: saleData.user_id,
         total: saleData.total,
         payment_method: saleData.payment_method,
+        company_id,
       })
       .select()
       .single();
@@ -80,6 +83,7 @@ export function useOffline() {
 
     const saleItems = saleData.items.map((item: any) => ({
       sale_id: sale.id,
+      company_id,
       product_id: item.product_id,
       quantity: item.quantity,
       unit_price: item.unit_price,

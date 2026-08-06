@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { getCompanyId } from '@/utils/tenant';
 
 // Categorias para adicionar ao sistema
 const newCategories = [
@@ -93,7 +94,7 @@ export async function addCategories() {
       
       const { error } = await supabase
         .from('categories')
-        .insert(batch);
+        .insert(batch.map(cat => ({ ...cat, company_id })));
       
       if (error) {
         console.error(`Erro ao inserir lote ${Math.floor(i/batchSize) + 1}:`, error);

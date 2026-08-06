@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getCompanyId } from '@/utils/tenant';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from './useAuth';
 import { useState, useEffect, useCallback } from 'react';
@@ -134,12 +135,14 @@ export function useSales() {
     for (const offlineSale of offlineSales) {
       try {
         // Criar venda online
+        const company_id = await getCompanyId();
         const { data: sale, error: saleError } = await supabase
           .from('sales')
           .insert({
             user_id: user.id,
             total: offlineSale.total,
             payment_method: offlineSale.payment_method,
+            company_id,
           })
           .select()
           .single();
@@ -153,6 +156,7 @@ export function useSales() {
         // Criar itens da venda
         const saleItems = offlineSale.items.map((item: SaleItem) => ({
           sale_id: sale.id,
+          company_id,
           product_id: item.product_id,
           quantity: item.quantity,
           unit_price: item.unit_price,
@@ -323,12 +327,14 @@ export function useSales() {
 
       console.log('ONLINE: Creating sale on server...');
       
+      const company_id = await getCompanyId();
       const { data: sale, error: saleError } = await supabase
         .from('sales')
         .insert({
           user_id: user.id,
           total,
           payment_method: paymentMethod,
+          company_id,
         })
         .select()
         .single();
@@ -337,6 +343,7 @@ export function useSales() {
 
       const saleItems = items.map(item => ({
         sale_id: sale.id,
+        company_id,
         product_id: item.product_id,
         quantity: item.quantity,
         unit_price: item.unit_price,
