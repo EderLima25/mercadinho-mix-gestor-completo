@@ -206,11 +206,14 @@ export function useCashRegister() {
 
   const addCashMovement = useMutation({
     mutationFn: async (movement: CashMovementInsert) => {
+      const companyId = await getCompanyId();
+      const { data: auth } = await supabase.auth.getUser();
       const { data, error } = await supabase
         .from('cash_movements' as any)
-        .insert(movement)
+        .insert({ ...movement, company_id: companyId, user_id: auth?.user?.id })
         .select()
         .single();
+
       
       if (error) throw error;
 
