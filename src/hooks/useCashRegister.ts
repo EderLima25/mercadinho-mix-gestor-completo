@@ -125,6 +125,11 @@ export function useCashRegister() {
 
   const openCashRegister = useMutation({
     mutationFn: async (data: CashRegisterInsert) => {
+      const companyId = await getCompanyId();
+      const { data: auth } = await supabase.auth.getUser();
+      const userId = auth?.user?.id;
+      if (!userId) throw new Error('Usuário não autenticado');
+
       // Check if there's already an open register
       const { data: existingOpen } = await supabase
         .from('cash_registers' as any)
@@ -142,6 +147,8 @@ export function useCashRegister() {
           initial_amount: data.initial_amount,
           notes: data.notes,
           is_open: true,
+          company_id: companyId,
+          user_id: userId,
         })
         .select()
         .single();
@@ -149,6 +156,7 @@ export function useCashRegister() {
       if (error) throw error;
       return result as any;
     },
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['current-cash-register'] });
       queryClient.invalidateQueries({ queryKey: ['cash-registers'] });
