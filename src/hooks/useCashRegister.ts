@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getCompanyId } from '@/utils/tenant';
 
 export interface CashRegister {
   id: string;
@@ -124,6 +125,11 @@ export function useCashRegister() {
 
   const openCashRegister = useMutation({
     mutationFn: async (data: CashRegisterInsert) => {
+      const companyId = await getCompanyId();
+      const { data: auth } = await supabase.auth.getUser();
+      const userId = auth?.user?.id;
+      if (!userId) throw new Error('Usuário não autenticado');
+
       // Check if there's already an open register
       const { data: existingOpen } = await supabase
         .from('cash_registers' as any)
@@ -141,6 +147,8 @@ export function useCashRegister() {
           initial_amount: data.initial_amount,
           notes: data.notes,
           is_open: true,
+          company_id: companyId,
+          user_id: userId,
         })
         .select()
         .single();
@@ -148,6 +156,7 @@ export function useCashRegister() {
       if (error) throw error;
       return result as any;
     },
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['current-cash-register'] });
       queryClient.invalidateQueries({ queryKey: ['cash-registers'] });
@@ -197,11 +206,14 @@ export function useCashRegister() {
 
   const addCashMovement = useMutation({
     mutationFn: async (movement: CashMovementInsert) => {
+      const companyId = await getCompanyId();
+      const { data: auth } = await supabase.auth.getUser();
       const { data, error } = await supabase
         .from('cash_movements' as any)
-        .insert(movement)
+        .insert({ ...movement, company_id: companyId, user_id: auth?.user?.id })
         .select()
         .single();
+
       
       if (error) throw error;
 
