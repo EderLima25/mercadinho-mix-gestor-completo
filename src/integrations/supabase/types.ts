@@ -14,6 +14,122 @@ export type Database = {
   }
   public: {
     Tables: {
+      cash_movements: {
+        Row: {
+          amount: number
+          cash_register_id: string
+          company_id: string
+          created_at: string
+          description: string
+          id: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          amount: number
+          cash_register_id: string
+          company_id: string
+          created_at?: string
+          description: string
+          id?: string
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          cash_register_id?: string
+          company_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_movements_cash_register_id_fkey"
+            columns: ["cash_register_id"]
+            isOneToOne: false
+            referencedRelation: "cash_registers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_movements_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cash_registers: {
+        Row: {
+          closed_at: string | null
+          company_id: string
+          created_at: string
+          deposits: number
+          final_amount: number | null
+          id: string
+          initial_amount: number
+          is_open: boolean
+          notes: string | null
+          opened_at: string
+          total_card_sales: number
+          total_cash_sales: number
+          total_pix_sales: number
+          total_sales: number
+          updated_at: string
+          user_id: string
+          withdrawals: number
+        }
+        Insert: {
+          closed_at?: string | null
+          company_id: string
+          created_at?: string
+          deposits?: number
+          final_amount?: number | null
+          id?: string
+          initial_amount?: number
+          is_open?: boolean
+          notes?: string | null
+          opened_at?: string
+          total_card_sales?: number
+          total_cash_sales?: number
+          total_pix_sales?: number
+          total_sales?: number
+          updated_at?: string
+          user_id: string
+          withdrawals?: number
+        }
+        Update: {
+          closed_at?: string | null
+          company_id?: string
+          created_at?: string
+          deposits?: number
+          final_amount?: number | null
+          id?: string
+          initial_amount?: number
+          is_open?: boolean
+          notes?: string | null
+          opened_at?: string
+          total_card_sales?: number
+          total_cash_sales?: number
+          total_pix_sales?: number
+          total_sales?: number
+          updated_at?: string
+          user_id?: string
+          withdrawals?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_registers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           color: string | null
