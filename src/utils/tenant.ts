@@ -42,8 +42,21 @@ export async function getCompanyId(): Promise<string> {
     .maybeSingle();
 
   if (error) throw error;
-  if (!data?.company_id) throw new Error('Empresa não encontrada para este usuário');
 
-  setCachedCompanyId(data.company_id);
-  return data.company_id;
+  if (data?.company_id) {
+    setCachedCompanyId(data.company_id);
+    return data.company_id;
+  }
+
+  // Conta criada antes do modo multiempresa (ou perfil sem empresa):
+  // provisiona a empresa automaticamente.
+  const { data: ensured, error: ensureError } = await supabase.rpc('ensure_company' as any, {
+    _company_name: null,
+  });
+
+  if (ensureError) throw ensureError;
+  if (!ensured) throw new Error('Empresa não encontrada para este usuário');
+
+  setCachedCompanyId(ensured as string);
+  return ensured as string;
 }
