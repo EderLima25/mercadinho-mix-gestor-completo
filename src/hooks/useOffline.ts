@@ -33,14 +33,15 @@ export function useOffline() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
       
-      const response = await fetch('/favicon.ico', { 
+      await fetch(`/manifest.json?ping=${Date.now()}`, { 
         method: 'HEAD',
-        cache: 'no-cache',
+        cache: 'no-store',
         signal: controller.signal
       });
       
       clearTimeout(timeoutId);
-      return response.ok;
+      // Qualquer resposta do servidor (mesmo 404) significa que há conexão
+      return true;
     } catch {
       return false;
     }
