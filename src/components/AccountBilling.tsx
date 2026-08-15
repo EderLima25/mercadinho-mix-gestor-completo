@@ -99,11 +99,21 @@ export function AccountBilling() {
         empresa: companyName,
       };
 
+      const { data: company } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('id', companyId);
+      dump.companies = company ?? [];
+
       for (const table of tables) {
-        const column = table === 'companies' ? 'id' : table === 'profiles' ? 'company_id' : 'company_id';
-        const { data } = await supabase.from(table).select('*').eq(column, companyId);
+        if (table === 'companies') continue;
+        const { data } = await supabase
+          .from(table as Exclude<typeof tables[number], 'companies'>)
+          .select('*')
+          .eq('company_id', companyId);
         dump[table] = data ?? [];
       }
+
 
       const blob = new Blob([JSON.stringify(dump, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
