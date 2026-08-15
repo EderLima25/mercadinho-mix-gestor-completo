@@ -11,13 +11,14 @@ import { UserManagement } from '@/components/UserManagement';
 import { Settings } from '@/components/Settings';
 import { SupplierManager } from '@/components/SupplierManager';
 import { CashRegisterManager } from '@/components/CashRegisterManager';
+import { AccountBilling } from '@/components/AccountBilling';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { LogOut, User, Download } from 'lucide-react';
 import { isPWAInstalled } from '@/utils/pwaUtils';
 import { useToast } from '@/hooks/use-toast';
 
-type View = 'dashboard' | 'pos' | 'products' | 'inventory' | 'import' | 'reports' | 'users' | 'settings' | 'suppliers' | 'cash';
+type View = 'dashboard' | 'pos' | 'products' | 'inventory' | 'import' | 'reports' | 'users' | 'settings' | 'suppliers' | 'cash' | 'account';
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -105,6 +106,7 @@ const Index = () => {
       case 'settings': return <Settings />;
       case 'suppliers': return <SupplierManager />;
       case 'cash': return <CashRegisterManager />;
+      case 'account': return <AccountBilling />;
       default: return <Dashboard />;
     }
   };
@@ -121,6 +123,7 @@ const Index = () => {
       case 'settings': return 'Configurações';
       case 'suppliers': return 'Fornecedores';
       case 'cash': return 'Controle de Caixa';
+      case 'account': return 'Conta & Assinatura';
       default: return 'Dashboard';
     }
   };

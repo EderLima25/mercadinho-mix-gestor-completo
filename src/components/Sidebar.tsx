@@ -15,6 +15,7 @@ import {
   Users,
   Building2,
   DollarSign,
+  CreditCard,
   CloudOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -22,7 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 
-type View = 'dashboard' | 'pos' | 'products' | 'inventory' | 'import' | 'reports' | 'users' | 'settings' | 'suppliers' | 'cash';
+type View = 'dashboard' | 'pos' | 'products' | 'inventory' | 'import' | 'reports' | 'users' | 'settings' | 'suppliers' | 'cash' | 'account';
 
 interface SidebarProps {
   currentView: View;
@@ -41,6 +42,7 @@ const menuItems = [
   { id: 'reports' as View, label: 'Relatórios', icon: FileText },
   { id: 'users' as View, label: 'Usuários', icon: Users },
   { id: 'import' as View, label: 'Importar/Exportar', icon: Upload },
+  { id: 'account' as View, label: 'Conta & Assinatura', icon: CreditCard },
   { id: 'settings' as View, label: 'Configurações', icon: Settings },
 ];
 

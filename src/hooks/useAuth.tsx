@@ -13,7 +13,7 @@ interface AuthContextType {
   companyId: string | null;
   companyName: string | null;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, fullName: string, companyName: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, fullName: string, companyName: string, inviteToken?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   createOfflineUser: () => void;
 }
@@ -187,7 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string, companyName: string) => {
+  const signUp = async (email: string, password: string, fullName: string, companyName: string, inviteToken?: string) => {
     if (!navigator.onLine) {
       const error = new Error('Cadastro requer conexão com internet');
       toast({
@@ -208,6 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         data: {
           full_name: fullName,
           company_name: companyName,
+          invite_token: inviteToken ?? '',
         },
       },
     });

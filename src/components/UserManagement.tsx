@@ -39,6 +39,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { getCompanyId } from '@/utils/tenant';
 import { useToast } from '@/hooks/use-toast';
+import { InviteManager } from '@/components/InviteManager';
 
 interface UserProfile {
   id: string;
@@ -207,6 +208,8 @@ export function UserManagement() {
           Atualizar Lista
         </Button>
       </div>
+
+      <InviteManager />
 
       {/* Estatísticas */}
       <div className="grid gap-4 sm:grid-cols-3">

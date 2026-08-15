@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Store, Mail, Lock, User, LogIn, UserPlus, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { z } from 'zod';
+import { supabase } from '@/integrations/supabase/client';
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -17,6 +18,10 @@ const loginSchema = z.object({
 const signupSchema = loginSchema.extend({
   fullName: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
   companyName: z.string().min(2, 'Informe o nome da empresa'),
+});
+
+const inviteSignupSchema = loginSchema.extend({
+  fullName: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
 });
 
 export default function Auth() {
@@ -30,6 +35,22 @@ export default function Auth() {
   
   const { signIn, signUp, user, createOfflineUser } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get('convite');
+  const [invite, setInvite] = useState<{ company_name: string; email: string; role: string; valid: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!inviteToken) return;
+    setIsLogin(false);
+    (async () => {
+      const { data } = await supabase.rpc('get_invite_info' as any, { _token: inviteToken });
+      const info = Array.isArray(data) ? data[0] : data;
+      if (info) {
+        setInvite(info as any);
+        if ((info as any).email) setEmail((info as any).email);
+      }
+    })();
+  }, [inviteToken]);
 
   useEffect(() => {
     if (user) {
@@ -62,7 +83,9 @@ export default function Auth() {
           navigate('/');
         }
       } else {
-        const result = signupSchema.safeParse({ email, password, fullName, companyName });
+        const result = invite?.valid
+          ? inviteSignupSchema.safeParse({ email, password, fullName })
+          : signupSchema.safeParse({ email, password, fullName, companyName });
         if (!result.success) {
           const fieldErrors: Record<string, string> = {};
           result.error.errors.forEach(err => {
@@ -75,7 +98,13 @@ export default function Auth() {
           return;
         }
 
-        const { error } = await signUp(email, password, fullName, companyName);
+        const { error } = await signUp(
+          email,
+          password,
+          fullName,
+          companyName,
+          invite?.valid ? inviteToken ?? undefined : undefined,
+        );
         if (!error) {
           setIsLogin(true);
           setEmail('');
@@ -117,6 +146,21 @@ export default function Auth() {
             </p>
           </div>
 
+          {invite && (
+            <div className={`mb-4 rounded-lg border p-3 text-sm ${invite.valid ? 'bg-primary/5 border-primary/20' : 'bg-destructive/5 border-destructive/20'}`}>
+              {invite.valid ? (
+                <>
+                  Você foi convidado para <strong>{invite.company_name}</strong> como{' '}
+                  <strong>
+                    {invite.role === 'admin' ? 'Administrador' : invite.role === 'manager' ? 'Gerente' : 'Operador'}
+                  </strong>. Crie sua senha para entrar.
+                </>
+              ) : (
+                <>Este convite é inválido ou expirou. Peça um novo link ao administrador.</>
+              )}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div className="space-y-2">
@@ -138,7 +182,7 @@ export default function Auth() {
               </div>
             )}
 
-            {!isLogin && (
+            {!isLogin && !invite?.valid && (
               <div className="space-y-2">
                 <Label htmlFor="companyName">Nome da Empresa</Label>
                 <div className="relative">
@@ -217,6 +261,12 @@ export default function Auth() {
               )}
             </Button>
           </form>
+
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            Ao criar uma conta você aceita os{' '}
+            <Link to="/termos" className="underline hover:text-primary">Termos de Uso</Link> e a{' '}
+            <Link to="/privacidade" className="underline hover:text-primary">Política de Privacidade</Link>.
+          </p>
 
           <div className="mt-6 text-center space-y-3">
             <button
