@@ -3,9 +3,9 @@
 export const BILLING = {
   planName: 'MercadoPDV Básico',
   monthlyPrice: 49.9,
-  pixKey: 'SUA-CHAVE-PIX-AQUI',
+  pixKey: '94240361320',
   pixHolder: 'MercadoPDV',
-  supportEmail: 'suporte@mercadopdv.com.br',
+  supportEmail: 'ederportelalima@hotmail.com',
   supportWhatsapp: '',
   legalName: 'MercadoPDV',
   trialDays: 14,
