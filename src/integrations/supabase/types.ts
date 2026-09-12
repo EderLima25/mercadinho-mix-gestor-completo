@@ -644,6 +644,7 @@ export type Database = {
     Functions: {
       accept_invite: { Args: { _token: string }; Returns: string }
       current_company_id: { Args: never; Returns: string }
+      decrement_stock: { Args: { _items: Json }; Returns: undefined }
       ensure_company: { Args: { _company_name?: string }; Returns: string }
       get_invite_info: {
         Args: { _token: string }
