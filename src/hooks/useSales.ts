@@ -171,21 +171,14 @@ export function useSales() {
           console.error('Error creating sale items:', itemsError);
         }
 
-        // Atualizar estoque online
-        for (const item of offlineSale.items) {
-          const { data: product } = await supabase
-            .from('products')
-            .select('stock')
-            .eq('id', item.product_id)
-            .single();
-          
-          if (product) {
-            await supabase
-              .from('products')
-              .update({ stock: Math.max(0, product.stock - item.quantity) })
-              .eq('id', item.product_id);
-          }
-        }
+        // Atualizar estoque online (decremento atômico no banco)
+        const { error: stockError } = await supabase.rpc('decrement_stock' as any, {
+          _items: offlineSale.items.map((item: SaleItem) => ({
+            product_id: item.product_id,
+            quantity: item.quantity,
+          })),
+        });
+        if (stockError) console.error('Error updating stock:', stockError);
         
         syncedCount++;
         console.log(`Synced offline sale: ${offlineSale.id}`);
