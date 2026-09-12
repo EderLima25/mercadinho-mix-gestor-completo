@@ -349,21 +349,14 @@ export function useSales() {
       
       if (itemsError) throw itemsError;
 
-      // Atualizar estoque
-      for (const item of items) {
-        const { data: product } = await supabase
-          .from('products')
-          .select('stock')
-          .eq('id', item.product_id)
-          .single();
-        
-        if (product) {
-          await supabase
-            .from('products')
-            .update({ stock: product.stock - item.quantity })
-            .eq('id', item.product_id);
-        }
-      }
+      // Atualizar estoque (decremento atômico no banco)
+      const { error: stockError } = await supabase.rpc('decrement_stock' as any, {
+        _items: items.map(item => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+        })),
+      });
+      if (stockError) console.error('Error updating stock:', stockError);
 
       return sale;
     },
