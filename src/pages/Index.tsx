@@ -12,6 +12,10 @@ import { Settings } from '@/components/Settings';
 import { SupplierManager } from '@/components/SupplierManager';
 import { CashRegisterManager } from '@/components/CashRegisterManager';
 import { AccountBilling } from '@/components/AccountBilling';
+import { OnboardingGuide } from '@/components/OnboardingGuide';
+import { SubscriptionBlock } from '@/components/SubscriptionBlock';
+import Landing from '@/pages/Landing';
+import { useSubscription } from '@/hooks/useSubscription';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { LogOut, User, Download } from 'lucide-react';
@@ -26,12 +30,8 @@ const Index = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [showInstallButton, setShowInstallButton] = useState(false);
+  const { isActive, loading: subLoading } = useSubscription();
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
-    }
-  }, [user, loading, navigate]);
 
   useEffect(() => {
     // Show install button if PWA is not installed
@@ -92,7 +92,10 @@ const Index = () => {
     );
   }
 
-  if (!user) return null;
+  if (!user) return <Landing />;
+
+  if (!subLoading && !isActive) return <SubscriptionBlock />;
+
 
   const renderView = () => {
     switch (currentView) {
@@ -168,6 +171,9 @@ const Index = () => {
               </Button>
             </div>
           </header>
+          {currentView === 'dashboard' && (
+            <OnboardingGuide onNavigate={(view) => setCurrentView(view)} />
+          )}
           {renderView()}
         </div>
       </main>
