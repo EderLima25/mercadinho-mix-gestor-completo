@@ -4,8 +4,17 @@ import "./index.css";
 import { logPWAStatus, clearPWACache, registerServiceWorker, testServiceWorkerCommunication } from "./utils/pwaUtils";
 import { LocalCache } from "./utils/localCache";
 
+// Silencia mensagens técnicas no navegador fora do ambiente de desenvolvimento
+if (!import.meta.env.DEV) {
+  const noop = () => {};
+  console.log = noop;
+  console.info = noop;
+  console.debug = noop;
+  console.warn = noop;
+}
+
 // Log PWA status for debugging
-logPWAStatus();
+if (import.meta.env.DEV) logPWAStatus();
 
 // Add global functions for debugging
 (window as any).clearPWACache = clearPWACache;
