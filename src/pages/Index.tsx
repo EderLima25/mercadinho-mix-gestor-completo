@@ -92,7 +92,10 @@ const Index = () => {
     );
   }
 
-  if (!user) return null;
+  if (!user) return <Landing />;
+
+  if (!subLoading && !isActive) return <SubscriptionBlock />;
+
 
   const renderView = () => {
     switch (currentView) {
