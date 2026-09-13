@@ -65,12 +65,9 @@ if (import.meta.env.DEV) logPWAStatus();
   console.log('==========================');
 };
 
-console.log('Debug functions available:');
-console.log('- clearPWACache() - Clear all caches and reload');
-console.log('- testSW() - Test service worker communication');
-console.log('- clearLocalCache() - Clear IndexedDB cache');
-console.log('- checkLocalCache() - Check local cache status');
-console.log('- debugOfflineStatus() - Debug offline detection status');
+if (import.meta.env.DEV) {
+  console.log('Debug functions available: clearPWACache, testSW, clearLocalCache, checkLocalCache, debugOfflineStatus');
+}
 
 // Register service worker for offline functionality
 window.addEventListener('load', async () => {
