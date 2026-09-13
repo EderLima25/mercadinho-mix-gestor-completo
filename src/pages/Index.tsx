@@ -30,12 +30,8 @@ const Index = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [showInstallButton, setShowInstallButton] = useState(false);
+  const { isActive, loading: subLoading } = useSubscription();
 
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
-    }
-  }, [user, loading, navigate]);
 
   useEffect(() => {
     // Show install button if PWA is not installed
