@@ -171,6 +171,9 @@ const Index = () => {
               </Button>
             </div>
           </header>
+          {currentView === 'dashboard' && (
+            <OnboardingGuide onNavigate={(view) => setCurrentView(view)} />
+          )}
           {renderView()}
         </div>
       </main>
