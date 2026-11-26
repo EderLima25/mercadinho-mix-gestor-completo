@@ -18,6 +18,7 @@ import {
 import { useProducts, Product } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
 import { AlertCircle } from 'lucide-react';
+import { validateProductInput } from '@/utils/validation';
 
 interface QuickProductModalProps {
   open: boolean;
@@ -41,22 +42,30 @@ export function QuickProductModal({
     stock: '1',
     category_id: '',
   });
+  const [formError, setFormError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError('');
 
-    const productData = {
+    const validation = validateProductInput({
       name: formData.name,
-      barcode: barcode,
-      price: parseFloat(formData.price),
-      cost_price: parseFloat(formData.price) * 0.7,
-      stock: parseInt(formData.stock),
+      barcode,
+      price: formData.price,
+      cost_price: Number(formData.price.replace(',', '.')) * 0.7,
+      stock: formData.stock,
       min_stock: 5,
-      category_id: formData.category_id || null,
       unit: 'un',
-    };
+    });
+    if ('error' in validation) {
+      setFormError(validation.error.issues[0]?.message ?? 'Revise os dados do produto.');
+      return;
+    }
 
-    const result = await addProduct.mutateAsync(productData);
+    const result = await addProduct.mutateAsync({
+      ...validation.data,
+      category_id: formData.category_id || null,
+    });
     onProductAdded(result);
     setFormData({ name: '', price: '', stock: '1', category_id: '' });
   };
@@ -80,7 +89,8 @@ export function QuickProductModal({
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          {formError && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{formError}</p>}
           <div>
             <Label htmlFor="quick-name">Nome do Produto</Label>
             <Input
@@ -88,6 +98,7 @@ export function QuickProductModal({
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Ex: Arroz 5kg"
+              maxLength={120}
               required
               autoFocus
             />
@@ -100,6 +111,8 @@ export function QuickProductModal({
                 id="quick-price"
                 type="number"
                 step="0.01"
+                min="0"
+                max="9999999"
                 value={formData.price}
                 onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                 placeholder="0,00"
@@ -111,6 +124,9 @@ export function QuickProductModal({
               <Input
                 id="quick-stock"
                 type="number"
+                min="0"
+                max="9999999"
+                step="1"
                 value={formData.stock}
                 onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
                 required

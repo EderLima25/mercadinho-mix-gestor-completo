@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { ExcelImporter } from './ExcelImporter';
+import { SHEET_UPLOAD, validateProductInput, validateUpload } from '@/utils/validation';
 
 export function ImportExport() {
   const [importing, setImporting] = useState(false);
@@ -61,6 +62,13 @@ export function ImportExport() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    const fileValidation = validateUpload(file, SHEET_UPLOAD);
+    if (!fileValidation.ok) {
+      toast({ title: 'Arquivo não permitido', description: 'error' in fileValidation ? fileValidation.error : 'Arquivo inválido.', variant: 'destructive' });
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     setImporting(true);
     setImportResult(null);
 
@@ -78,23 +86,38 @@ export function ImportExport() {
         parsedProducts = Array.isArray(data) ? data : data.products || [];
       }
 
-      const validProducts: ProductInsert[] = parsedProducts
-        .filter((p) => p.name && p.barcode)
-        .map((p) => ({
-          name: p.name!,
-          barcode: p.barcode!,
-          price: p.price || 0,
-          cost_price: p.cost_price || 0,
-          stock: p.stock || 0,
-          min_stock: p.min_stock || 5,
-          unit: p.unit || 'un',
-        }));
+      const validProducts: ProductInsert[] = [];
+      let invalidRows = 0;
 
-      await importProducts.mutateAsync(validProducts);
+      parsedProducts.forEach((product) => {
+        const validation = validateProductInput({
+          ...product,
+          price: product.price ?? 0,
+          cost_price: product.cost_price ?? 0,
+          stock: product.stock ?? 0,
+          min_stock: product.min_stock ?? 5,
+          unit: product.unit || 'un',
+        });
+        if (validation.success) {
+          validProducts.push(validation.data);
+        } else {
+          invalidRows += 1;
+        }
+      });
+
+      if (validProducts.length === 0) {
+        toast({
+          title: 'Nenhum produto válido',
+          description: 'Revise nomes, códigos, preços e estoques. Valores negativos ou vazios não são importados.',
+          variant: 'destructive',
+        });
+      } else {
+        await importProducts.mutateAsync(validProducts);
+      }
       
       setImportResult({
         success: validProducts.length,
-        errors: parsedProducts.length - validProducts.length,
+        errors: invalidRows,
       });
 
     } catch (error) {

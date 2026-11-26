@@ -49,6 +49,7 @@ import { Badge } from '@/components/ui/badge';
 import { ProductCleaner } from './ProductCleaner';
 import { CategoryManager } from './CategoryManager';
 import { generateEAN13 } from '@/utils/barcodeGenerator';
+import { validateProductInput } from '@/utils/validation';
 
 export function ProductManager() {
   const [search, setSearch] = useState('');
@@ -57,6 +58,7 @@ export function ProductManager() {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   
   // Estados para paginação
   const [currentPage, setCurrentPage] = useState(1);
@@ -125,23 +127,28 @@ export function ProductManager() {
       sell_by_weight: false,
     });
     setEditingProduct(null);
+    setFormErrors({});
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormErrors({});
+
+    const validation = validateProductInput(formData);
+    if ('error' in validation) {
+      const nextErrors: Record<string, string> = {};
+      validation.error.issues.forEach((issue) => {
+        const field = String(issue.path[0] ?? 'form');
+        if (!nextErrors[field]) nextErrors[field] = issue.message;
+      });
+      setFormErrors(nextErrors);
+      return;
+    }
 
     const productData = {
-      name: formData.name,
-      barcode: formData.barcode,
-      price: parseFloat(formData.price),
-      cost_price: parseFloat(formData.cost_price),
-      stock: parseInt(formData.stock),
-      min_stock: parseInt(formData.min_stock),
+      ...validation.data,
       category_id: formData.category_id || null,
-      unit: formData.unit,
-      description: formData.description || null,
       is_active: formData.is_active,
-      internal_code: formData.internal_code || null,
       sell_by_weight: formData.sell_by_weight,
     };
 
@@ -281,7 +288,15 @@ export function ProductManager() {
                 {editingProduct ? 'Editar Produto' : 'Cadastrar Novo Produto'}
               </DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+              {Object.keys(formErrors).length > 0 && (
+                <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                  <p className="font-medium">Revise os dados antes de salvar:</p>
+                  <ul className="mt-1 list-inside list-disc">
+                    {Object.values(formErrors).map((message) => <li key={message}>{message}</li>)}
+                  </ul>
+                </div>
+              )}
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2">
                   <Label htmlFor="name">Nome do Produto</Label>
@@ -289,6 +304,7 @@ export function ProductManager() {
                     id="name"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    maxLength={120}
                     required
                   />
                 </div>
@@ -300,6 +316,7 @@ export function ProductManager() {
                       value={formData.barcode}
                       onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
                       placeholder="Digite ou gere um código EAN-13"
+                      maxLength={64}
                       required
                     />
                     <TooltipProvider>
@@ -327,6 +344,8 @@ export function ProductManager() {
                     id="price"
                     type="number"
                     step="0.01"
+                    min="0"
+                    max="9999999"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                     required
@@ -338,6 +357,8 @@ export function ProductManager() {
                     id="cost_price"
                     type="number"
                     step="0.01"
+                    min="0"
+                    max="9999999"
                     value={formData.cost_price}
                     onChange={(e) => setFormData({ ...formData, cost_price: e.target.value })}
                     required
@@ -348,6 +369,9 @@ export function ProductManager() {
                   <Input
                     id="stock"
                     type="number"
+                    min="0"
+                    max="9999999"
+                    step="1"
                     value={formData.stock}
                     onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
                     required
@@ -358,6 +382,9 @@ export function ProductManager() {
                   <Input
                     id="min_stock"
                     type="number"
+                    min="0"
+                    max="9999999"
+                    step="1"
                     value={formData.min_stock}
                     onChange={(e) => setFormData({ ...formData, min_stock: e.target.value })}
                     required
@@ -406,6 +433,7 @@ export function ProductManager() {
                     value={formData.internal_code}
                     onChange={(e) => setFormData({ ...formData, internal_code: e.target.value })}
                     placeholder="Opcional"
+                    maxLength={60}
                   />
                 </div>
                 <div className="sm:col-span-2">
@@ -415,6 +443,7 @@ export function ProductManager() {
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="Descrição opcional do produto"
+                    maxLength={500}
                   />
                 </div>
                 <div className="flex items-center gap-2">

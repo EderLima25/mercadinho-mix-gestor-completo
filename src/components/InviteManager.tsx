@@ -23,8 +23,9 @@ import { Copy, Mail, Send, Ban } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getCompanyId } from '@/utils/tenant';
 import { useToast } from '@/hooks/use-toast';
+import { AppRole, ROLE_LABEL } from '@/hooks/usePermissions';
 
-type Role = 'admin' | 'manager' | 'cashier';
+type Role = AppRole;
 
 interface Invite {
   id: string;
@@ -36,11 +37,7 @@ interface Invite {
   created_at: string;
 }
 
-const roleLabel: Record<string, string> = {
-  admin: 'Administrador',
-  manager: 'Gerente',
-  cashier: 'Operador',
-};
+const roleLabel: Record<string, string> = ROLE_LABEL;
 
 export function InviteManager() {
   const [invites, setInvites] = useState<Invite[]>([]);
@@ -163,6 +160,7 @@ export function InviteManager() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="cashier">Operador</SelectItem>
+                <SelectItem value="viewer">Visualizador (somente consulta)</SelectItem>
                 <SelectItem value="manager">Gerente</SelectItem>
                 <SelectItem value="admin">Administrador</SelectItem>
               </SelectContent>

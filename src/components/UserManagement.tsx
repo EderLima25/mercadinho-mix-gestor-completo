@@ -34,12 +34,14 @@ import {
   Trash2,
   Crown,
   User,
-  ShoppingCart
+  ShoppingCart,
+  Eye
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { getCompanyId } from '@/utils/tenant';
 import { useToast } from '@/hooks/use-toast';
 import { InviteManager } from '@/components/InviteManager';
+import { AppRole, ROLE_LABEL } from '@/hooks/usePermissions';
 
 interface UserProfile {
   id: string;
@@ -58,7 +60,7 @@ interface ProfileData {
 export function UserManagement() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newRole, setNewRole] = useState<'admin' | 'manager' | 'cashier'>('cashier');
+  const [newRole, setNewRole] = useState<AppRole>('cashier');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -114,7 +116,7 @@ export function UserManagement() {
     }
   };
 
-  const updateUserRole = async (userId: string, role: 'admin' | 'manager' | 'cashier', action: 'add' | 'remove') => {
+  const updateUserRole = async (userId: string, role: AppRole, action: 'add' | 'remove') => {
     try {
       if (action === 'add') {
         const { error } = await supabase
@@ -154,6 +156,8 @@ export function UserManagement() {
         return <Shield className="h-4 w-4" />;
       case 'cashier':
         return <ShoppingCart className="h-4 w-4" />;
+      case 'viewer':
+        return <Eye className="h-4 w-4" />;
       default:
         return <User className="h-4 w-4" />;
     }
@@ -172,18 +176,7 @@ export function UserManagement() {
     }
   };
 
-  const getRoleName = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return 'Administrador';
-      case 'manager':
-        return 'Gerente';
-      case 'cashier':
-        return 'Operador';
-      default:
-        return role;
-    }
-  };
+  const getRoleName = (role: string) => ROLE_LABEL[role as AppRole] ?? role;
 
   if (loading) {
     return (
@@ -212,7 +205,7 @@ export function UserManagement() {
       <InviteManager />
 
       {/* Estatísticas */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-2">
@@ -249,6 +242,20 @@ export function UserManagement() {
                 <p className="text-sm text-muted-foreground">Operadores</p>
                 <p className="text-2xl font-bold">
                   {users.filter(u => u.roles.includes('cashier')).length}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">Visualizadores</p>
+                <p className="text-2xl font-bold">
+                  {users.filter(u => u.roles.includes('viewer')).length}
                 </p>
               </div>
             </div>
@@ -329,7 +336,7 @@ export function UserManagement() {
                                   {getRoleIcon(role)}
                                   {getRoleName(role)}
                                   <button
-                                    onClick={() => updateUserRole(user.id, role as 'admin' | 'manager' | 'cashier', 'remove')}
+                                    onClick={() => updateUserRole(user.id, role as AppRole, 'remove')}
                                     className="ml-1 hover:bg-black/20 rounded-full p-0.5"
                                   >
                                     <Trash2 className="h-3 w-3" />
@@ -342,12 +349,13 @@ export function UserManagement() {
                           <div>
                             <Label>Adicionar Role</Label>
                             <div className="flex gap-2 mt-2">
-                              <Select value={newRole} onValueChange={(value: 'admin' | 'manager' | 'cashier') => setNewRole(value)}>
+                              <Select value={newRole} onValueChange={(value: AppRole) => setNewRole(value)}>
                                 <SelectTrigger>
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="cashier">Operador</SelectItem>
+                                  <SelectItem value="viewer">Visualizador</SelectItem>
                                   <SelectItem value="manager">Gerente</SelectItem>
                                   <SelectItem value="admin">Administrador</SelectItem>
                                 </SelectContent>
@@ -377,7 +385,7 @@ export function UserManagement() {
           <CardTitle>Sobre os Roles</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <div className="flex items-start gap-3">
               <Crown className="h-5 w-5 text-red-500 mt-0.5" />
               <div>
@@ -404,6 +412,16 @@ export function UserManagement() {
                 <h4 className="font-medium">Operador</h4>
                 <p className="text-sm text-muted-foreground">
                   Acesso ao PDV e funções básicas de venda
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <Eye className="h-5 w-5 text-muted-foreground mt-0.5" />
+              <div>
+                <h4 className="font-medium">Visualizador</h4>
+                <p className="text-sm text-muted-foreground">
+                  Somente consulta produtos, vendas, caixa e relatórios; não registra nem altera dados
                 </p>
               </div>
             </div>

@@ -31,6 +31,8 @@ import {
 import { ThermalPrinter } from '@/utils/thermalPrinter';
 import { BarcodeScanner } from '@/utils/barcodeScanner';
 import { BackupManager } from './BackupManager';
+import { TwoFactorSettings } from './TwoFactorSettings';
+import { AuditLog } from './AuditLog';
 import { validatePixKey, formatPixKeyForDisplay } from '@/utils/pixGenerator';
 
 interface StoreSettings {
@@ -326,12 +328,13 @@ export function Settings() {
       </div>
 
       <Tabs defaultValue="store" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid h-auto w-full grid-cols-2 sm:grid-cols-4 xl:grid-cols-8">
           <TabsTrigger value="store">Loja</TabsTrigger>
           <TabsTrigger value="pix">PIX</TabsTrigger>
           <TabsTrigger value="hardware">Hardware</TabsTrigger>
           <TabsTrigger value="notifications">Notificações</TabsTrigger>
           <TabsTrigger value="system">Sistema</TabsTrigger>
+          <TabsTrigger value="security">Segurança</TabsTrigger>
           <TabsTrigger value="backup">Backup</TabsTrigger>
           <TabsTrigger value="about">Sobre</TabsTrigger>
         </TabsList>
@@ -768,6 +771,12 @@ export function Settings() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Segurança da conta e da empresa */}
+        <TabsContent value="security" className="space-y-6">
+          <TwoFactorSettings />
+          <AuditLog />
         </TabsContent>
 
         {/* Backup */}

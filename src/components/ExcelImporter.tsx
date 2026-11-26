@@ -10,6 +10,7 @@ import { useCategories } from '@/hooks/useCategories';
 import { useQueryClient } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'framer-motion';
+import { validateProductInput, validateUpload } from '@/utils/validation';
 
 interface ImportedProduct {
   name: string;
@@ -57,30 +58,17 @@ export function ExcelImporter() {
     return categoriesMap.get(normalizedName) || null;
   };
 
-  const parseExcelRow = (row: any, categoriesMap: Map<string, string>): ImportedProduct | null => {
+  const parseExcelRow = (row: any, categoriesMap: Map<string, string>): ImportedProduct => {
     // Mapear campos do Excel para o formato do banco
     const name = String(row.nome || row.name || row.Nome || row.NAME || '').trim();
     const barcode = String(row.codigo_barras || row.barcode || row.codigo || row.Codigo || row['código'] || '').trim();
     
-    if (!name || !barcode) return null;
-    
-    // Preço de venda
-    let price = parseFloat(row.preco_venda || row.preco || row.price || row.Preco || row['preço'] || 0);
-    if (isNaN(price) || price < 0) price = 0;
-    
-    // Preço de custo
-    let costPrice = parseFloat(row.preco_custo || row.custo || row.cost || row.Custo || row.cost_price || 0);
-    if (isNaN(costPrice) || costPrice < 0) costPrice = 0;
-    
-    // Estoque - default 1000 para novos produtos
-    let stock = parseInt(row.estoque || row.stock || 1000);
-    if (isNaN(stock) || stock < 0) stock = 1000;
-    
-    // Estoque mínimo
-    let minStock = parseInt(row.estoque_minimo || row.minimo || row.min_stock || 2);
-    if (isNaN(minStock) || minStock < 0) minStock = 2;
-    // Valores muito grandes são erros, limitar
-    if (minStock > 10000) minStock = 2;
+    // Valores inválidos são mantidos para a validação rejeitar a linha,
+    // em vez de transformar um erro de cadastro em preço ou estoque zero.
+    const price = Number.parseFloat(row.preco_venda ?? row.preco ?? row.price ?? row.Preco ?? row['preço'] ?? 0);
+    const costPrice = Number.parseFloat(row.preco_custo ?? row.custo ?? row.cost ?? row.Custo ?? row.cost_price ?? 0);
+    const stock = Number(row.estoque ?? row.stock ?? 1000);
+    const minStock = Number(row.estoque_minimo ?? row.minimo ?? row.min_stock ?? 2);
     
     // Unidade
     const unit = normalizeUnit(row.unidade_medida || row.unidade || row.unit);
@@ -128,6 +116,13 @@ export function ExcelImporter() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    const fileValidation = validateUpload(file, { maxSizeMB: 10, allowedExtensions: ['xlsx', 'xls'] });
+    if (!fileValidation.ok) {
+      toast({ title: 'Arquivo não permitido', description: 'error' in fileValidation ? fileValidation.error : 'Arquivo inválido.', variant: 'destructive' });
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     setImporting(true);
     setProgress(0);
     setCurrentBatch(0);
@@ -141,8 +136,6 @@ export function ExcelImporter() {
       categories.forEach(cat => {
         categoriesMap.set(cat.name.toLowerCase(), cat.id);
       });
-
-      console.log('Categorias disponíveis:', Array.from(categoriesMap.keys()));
 
       // Ler arquivo Excel
       const arrayBuffer = await file.arrayBuffer();
@@ -158,14 +151,18 @@ export function ExcelImporter() {
 
       data.forEach((row: any, index) => {
         const product = parseExcelRow(row, categoriesMap);
-        if (product) {
-          if (!seenBarcodes.has(product.barcode)) {
-            seenBarcodes.add(product.barcode);
-            products.push(product);
-          }
-        } else {
-          parseErrors.push(`Linha ${index + 2}: nome ou código de barras inválido`);
+        const validation = validateProductInput({ ...product });
+        if ('error' in validation) {
+          parseErrors.push(`Linha ${index + 2}: ${validation.error.issues[0]?.message ?? 'dados inválidos'}`);
+          return;
         }
+        const validatedProduct = { ...product, ...validation.data };
+        if (seenBarcodes.has(validatedProduct.barcode)) {
+          parseErrors.push(`Linha ${index + 2}: código de barras repetido no arquivo`);
+          return;
+        }
+        seenBarcodes.add(validatedProduct.barcode);
+        products.push(validatedProduct);
       });
 
       if (products.length === 0) {
@@ -182,7 +179,7 @@ export function ExcelImporter() {
       const company_id = await getCompanyId();
       const BATCH_SIZE = 50;
       let successCount = 0;
-      let errorCount = 0;
+      let errorCount = parseErrors.length;
       const importErrors: string[] = [...parseErrors];
       const batches = Math.ceil(products.length / BATCH_SIZE);
       
@@ -229,7 +226,7 @@ export function ExcelImporter() {
       setImportResult({
         success: successCount,
         errors: errorCount,
-        total: products.length,
+        total: data.length,
       });
       
       if (importErrors.length > 0) {
@@ -242,12 +239,12 @@ export function ExcelImporter() {
       if (successCount > 0) {
         toast({
           title: 'Importação concluída!',
-          description: `${successCount} de ${products.length} produtos importados com sucesso.`,
+          description: `${successCount} de ${data.length} produtos importados com sucesso.`,
         });
       } else {
         toast({
           title: 'Erro na importação',
-          description: 'Nenhum produto foi importado. Verifique o console para detalhes.',
+          description: 'Nenhum produto foi importado. Revise os erros informados na tela.',
           variant: 'destructive',
         });
       }

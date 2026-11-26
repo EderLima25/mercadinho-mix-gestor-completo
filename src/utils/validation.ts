@@ -35,7 +35,50 @@ export const productSchema = z.object({
   internal_code: z.string().max(60, 'Código interno muito longo').nullable().optional(),
 });
 
-export type ProductInput = z.infer<typeof productSchema>;
+export interface ProductInput {
+  name: string;
+  barcode: string;
+  price: number;
+  cost_price: number;
+  stock: number;
+  min_stock: number;
+  unit: string;
+  description: string | null;
+  internal_code: string | null;
+}
+
+function toNumber(value: unknown): number {
+  if (typeof value === 'number') return value;
+  if (typeof value !== 'string' || value.trim() === '') return Number.NaN;
+  return Number(value.trim().replace(',', '.'));
+}
+
+function optionalText(value: unknown): string | null {
+  if (value === null || value === undefined || value === '') return null;
+  return sanitizeText(String(value));
+}
+
+/**
+ * Normaliza e valida entradas de formulários e importações no mesmo padrão.
+ * Valores inválidos são rejeitados, nunca convertidos silenciosamente para zero.
+ */
+export function validateProductInput(
+  input: Record<string, unknown>,
+): { success: true; data: ProductInput } | { success: false; error: z.ZodError } {
+  const result = productSchema.safeParse({
+    name: sanitizeText(String(input.name ?? '')),
+    barcode: sanitizeText(String(input.barcode ?? '')),
+    price: toNumber(input.price),
+    cost_price: toNumber(input.cost_price),
+    stock: toNumber(input.stock),
+    min_stock: toNumber(input.min_stock),
+    unit: sanitizeText(String(input.unit ?? 'un')),
+    description: optionalText(input.description),
+    internal_code: optionalText(input.internal_code),
+  });
+  if (result.success) return { success: true, data: result.data as ProductInput };
+  return { success: false, error: result.error };
+}
 
 /** Valida um arquivo de upload (logo, comprovante, importação). */
 export function validateUpload(
